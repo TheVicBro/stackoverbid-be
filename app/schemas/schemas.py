@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
+
 # --- User Schemas ---
 class UserCreate(BaseModel):
     username: str
@@ -9,6 +10,7 @@ class UserCreate(BaseModel):
     first_name: str
     last_name: str
     address: str
+
 
 class User(BaseModel):
     id: int
@@ -19,14 +21,17 @@ class User(BaseModel):
 
     class Config:
         from_attributes = True
-        
+
+
 class UserLogin(BaseModel):
     username: str
     password: str
 
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
 
 # --- Item Schemas ---
 class ItemCreate(BaseModel):
@@ -36,6 +41,7 @@ class ItemCreate(BaseModel):
     end_time: datetime
     shipping_time_days: Optional[int] = 5
     expedited_shipping_cost: Optional[float] = 15.0
+
 
 class Item(BaseModel):
     id: int
@@ -53,9 +59,11 @@ class Item(BaseModel):
     class Config:
         from_attributes = True
 
+
 # --- Bid Schemas ---
 class BidCreate(BaseModel):
     amount: float
+
 
 class Bid(BaseModel):
     id: int
@@ -67,6 +75,7 @@ class Bid(BaseModel):
     class Config:
         from_attributes = True
 
+
 # --- Payment Schemas ---
 class PaymentRequest(BaseModel):
     credit_card_number: str
@@ -74,6 +83,7 @@ class PaymentRequest(BaseModel):
     expiration_date: str
     security_code: str
     expedited_shipping: bool = False
+
 
 class Receipt(BaseModel):
     order_id: int
@@ -83,3 +93,18 @@ class Receipt(BaseModel):
     shipping_time_days: int
     expedited_shipping: bool
     message: str
+
+
+# --- Notification Schemas ---
+class Notification(BaseModel):
+    id: int
+    user_id: int
+    item_id: int
+    message: str
+    is_highest_bidder: bool
+    highest_bid_amount: Optional[float] = None
+    created_at: datetime
+    read: bool
+
+    class Config:
+        from_attributes = True
