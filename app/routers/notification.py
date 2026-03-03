@@ -4,8 +4,10 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect  # type: 
 from sqlalchemy.orm import Session  # type: ignore[import]
 
 from app.database import get_db
+from app.models import models
 from app.schemas import schemas
 from app.services import notification_service
+from app.utils.auth import get_current_user
 
 
 router = APIRouter(
@@ -64,8 +66,12 @@ async def websocket_notifications(websocket: WebSocket, user_id: int) -> None:
 
 
 @router.get("/", response_model=List[schemas.Notification])
-def list_notifications(user_id: int, db: Session = Depends(get_db)) -> List[schemas.Notification]:
-    notifications = notification_service.list_notifications_for_user(db, user_id)
+def list_notifications(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+) -> List[schemas.Notification]:
+    """Return notifications for the authenticated user."""
+    notifications = notification_service.list_notifications_for_user(db, current_user.id)  # type: ignore[arg-type]
     return [schemas.Notification.model_validate(n) for n in notifications]
 
 
@@ -81,7 +87,7 @@ async def broadcast_auction_end(item_id: int, db: Session = Depends(get_db)) -> 
             "is_highest_bidder": notification.is_highest_bidder,
             "highest_bid_amount": notification.highest_bid_amount,
             "can_proceed_to_payment": notification.is_highest_bidder,
-            "payment_url": f"/payment/items/{notification.item_id}/pay" if notification.is_highest_bidder else None,
+            "payment_url": f"/payment/items/{notification.item_id}/pay" if notification.is_highest_bidder else None,  # type: ignore[arg-type]
         }
         await pubsub.publish(f"user:{notification.user_id}", payload)
 
