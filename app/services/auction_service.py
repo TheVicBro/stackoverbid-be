@@ -19,14 +19,14 @@ def place_bid(db: Session, item_id: int, user_id: int, bid_in: schemas.BidCreate
         raise HTTPException(status_code=404, detail="The item does not exist or cannot be found.")
     
     if item.status != "active":
-        raise HTTPException(status_code=400, detail="The auction has ended.")
+        raise HTTPException(status_code=400, detail="Auction Closed")
 
     highestBid = bid_dao.getHighestBid(db, item_id)
 
     min_required = highestBid if highestBid is not None else item.starting_price
 
     if bid_in.amount <= min_required:
-        raise HTTPException(status_code=400,detail = f"Bid must be greater than {min_required}")
+        raise HTTPException(status_code=400,detail = f"Bid too low.")
 
     bid = bid_dao.create_bid(db, item_id, user_id, bid_in)
 
