@@ -18,7 +18,7 @@ def create_bid(db: Session, item_id: int, user_id: int, bid_in: schemas.BidCreat
     db.refresh(bid)
     return bid
 
-def getHighestBid(db: Session, item_id: int):
+def get_highest_bid(db: Session, item_id: int):
     highestBid = (db.query(func.max(models.Bid.amount)).filter(models.Bid.item_id == item_id).scalar())
     return highestBid
 
