@@ -1,6 +1,7 @@
 from typing import List
 
 from sqlalchemy.orm import Session  # type: ignore[import]
+from sqlalchemy import func
 
 from app.models import models
 from app.schemas import schemas
@@ -17,6 +18,9 @@ def create_bid(db: Session, item_id: int, user_id: int, bid_in: schemas.BidCreat
     db.refresh(bid)
     return bid
 
+def getHighestBid(db: Session, item_id: int):
+    highestBid = (db.query(func.max(models.Bid.amount)).filter(models.Bid.item_id == item_id).scalar())
+    return highestBid
 
 def list_bids_for_item_desc(db: Session, item_id: int) -> List[models.Bid]:
     return (
