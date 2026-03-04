@@ -83,15 +83,18 @@ class PaymentRequest(BaseModel):
     expiration_date: str
     security_code: str
     expedited_shipping: bool = False
+    shipping_address: Optional[str] = None  # If omitted, user's profile address is used
 
 
 class Receipt(BaseModel):
     order_id: int
     item_id: int
+    item_title: str
     amount_paid: float
     shipping_address: str
     shipping_time_days: int
     expedited_shipping: bool
+    paid_at: datetime
     message: str
 
 
