@@ -21,7 +21,7 @@ def place_bid(db: Session, item_id: int, user_id: int, bid_in: schemas.BidCreate
     if item.status != "active":
         raise HTTPException(status_code=400, detail="The auction has ended.")
 
-    highestBid = (db.query(func.max(models.Bid.amount)).filter(models.Bid.item_id == item_id).scalar())
+    highestBid = bid_dao.getHighestBid(db, item_id)
 
     min_required = highestBid if highestBid is not None else item.starting_price
 
