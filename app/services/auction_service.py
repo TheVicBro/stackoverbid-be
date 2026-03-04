@@ -26,7 +26,7 @@ def place_bid(db: Session, item_id: int, user_id: int, bid_in: schemas.BidCreate
     min_required = highestBid if highestBid is not None else item.starting_price
 
     if bid_in.amount <= min_required:
-        raise HTTPException(status_code=400,detail = f"Bid too low.")
+        raise HTTPException(status_code=400,detail = "Bid too low.")
 
     bid = bid_dao.create_bid(db, item_id, user_id, bid_in)
 
