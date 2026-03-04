@@ -14,7 +14,7 @@ def create_item(db: Session, item_in: schemas.ItemCreate, seller_id: int) -> sch
 
 def place_bid(db: Session, item_id: int, user_id: int, bid_in: schemas.BidCreate) -> schemas.Bid:
 
-    item = item_dao.get_item_by_id(db, item_id)
+    item = item_dao.get_item(db, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="The item does not exist or cannot be found.")
     
