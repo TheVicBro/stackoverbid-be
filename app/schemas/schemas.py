@@ -1,6 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 # --- User Schemas ---
@@ -41,6 +41,36 @@ class ItemCreate(BaseModel):
     end_time: datetime
     shipping_time_days: Optional[int] = 5
     expedited_shipping_cost: Optional[float] = 15.0
+
+    @field_validator("title")
+    @classmethod
+    def title_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Title cannot be empty.")
+        return v.strip()
+
+    @field_validator("description")
+    @classmethod
+    def description_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Description cannot be empty.")
+        return v.strip()
+
+    @field_validator("starting_price")
+    @classmethod
+    def price_must_be_positive(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("Starting price must be greater than zero.")
+        return v
+
+    @field_validator("end_time")
+    @classmethod
+    def end_time_in_future(cls, v: datetime) -> datetime:
+        # Naive datetimes are assumed UTC; aware datetimes are converted to UTC.
+        v_utc = v.replace(tzinfo=timezone.utc) if v.tzinfo is None else v.astimezone(timezone.utc)
+        if v_utc <= datetime.now(timezone.utc):
+            raise ValueError("End time must be in the future.")
+        return v
 
 
 class Item(BaseModel):
