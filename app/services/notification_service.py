@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 from typing import List
 
-from sqlalchemy.orm import Session  # type: ignore[import]
+from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
 
 from app.daos import bid_dao, item_dao, notification_dao
 from app.models import models
@@ -12,7 +13,6 @@ def list_notifications_for_user(db: Session, user_id: int) -> List[models.Notifi
 
 
 def close_auction_and_create_notifications(db: Session, item_id: int) -> List[models.Notification]:
-    from fastapi import HTTPException, status  # type: ignore[import]
 
     item = item_dao.get_item(db, item_id)
     if not item:

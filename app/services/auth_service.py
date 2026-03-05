@@ -1,6 +1,7 @@
-from sqlalchemy.orm import Session  # type: ignore[import]
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
 
-from app import utils
+from app.utils import auth
 from app.daos import user_dao
 from app.schemas import schemas
 
@@ -8,21 +9,17 @@ from app.schemas import schemas
 def signup(db: Session, user_in: schemas.UserCreate) -> schemas.User:
     existing = user_dao.get_user_by_username(db, user_in.username)
     if existing:
-        from fastapi import HTTPException  # type: ignore[import]
-
         raise HTTPException(status_code=400, detail="Username already registered")
 
-    hashed = utils.auth.hash_password(user_in.password)
+    hashed = auth.hash_password(user_in.password)
     user = user_dao.create_user(db, user_in, hashed)
     return schemas.User.model_validate(user)
 
 
 def login(db: Session, credentials: schemas.UserLogin) -> schemas.Token:
-    from fastapi import HTTPException  # type: ignore[import]
-
     user = user_dao.get_user_by_username(db, credentials.username)
-    if not user or not utils.auth.verify_password(credentials.password, user.hashed_password):
+    if not user or not auth.verify_password(credentials.password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Invalid username or password")
-    access_token = utils.auth.access_token(data={"sub": str(user.id), "username": user.username})
+    access_token = auth.access_token(data={"sub": str(user.id), "username": user.username})
     return schemas.Token(access_token=access_token)
 

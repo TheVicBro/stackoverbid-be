@@ -47,6 +47,9 @@ def place_bid(db: Session, item_id: int, user_id: int, bid_in: schemas.BidCreate
     if item.end_time.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Auction has expired.")
 
+    if user_id == item.seller_id:
+        raise HTTPException(status_code=403, detail="Sellers cannot bid on their own items.")
+
     highest_bid = bid_dao.get_highest_bid(db, item_id)
     min_required = highest_bid if highest_bid is not None else item.starting_price
 
