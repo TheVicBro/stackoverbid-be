@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends  # type: ignore[import]
-from sqlalchemy.orm import Session  # type: ignore[import]
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
 from app.daos import item_dao
 from app.database import get_db

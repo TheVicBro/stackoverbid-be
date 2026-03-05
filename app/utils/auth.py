@@ -4,9 +4,9 @@ from passlib.context import CryptContext
 from jose import jwt, JWTError
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Depends, HTTPException, status  # type: ignore[import]
-from fastapi.security import OAuth2PasswordBearer  # type: ignore[import]
-from sqlalchemy.orm import Session  # type: ignore[import]
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import models

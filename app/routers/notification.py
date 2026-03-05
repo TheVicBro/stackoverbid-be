@@ -1,7 +1,7 @@
 from typing import Awaitable, Callable, Dict, List, Optional, Set
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, status  # type: ignore[import]
-from sqlalchemy.orm import Session  # type: ignore[import]
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, status
+from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import models
@@ -92,7 +92,7 @@ def list_notifications(
     current_user: models.User = Depends(get_current_user),
 ) -> List[schemas.Notification]:
     """Return notifications for the authenticated user."""
-    notifications = notification_service.list_notifications_for_user(db, current_user.id)  # type: ignore[arg-type]
+    notifications = notification_service.list_notifications_for_user(db, current_user.id)
     return [schemas.Notification.model_validate(n) for n in notifications]
 
 
@@ -108,7 +108,7 @@ async def broadcast_auction_end(item_id: int, db: Session = Depends(get_db)) -> 
             "is_highest_bidder": notification.is_highest_bidder,
             "highest_bid_amount": notification.highest_bid_amount,
             "can_proceed_to_payment": notification.is_highest_bidder,
-            "payment_url": f"/payment/items/{notification.item_id}/pay" if notification.is_highest_bidder else None,  # type: ignore[arg-type]
+            "payment_url": f"/payment/items/{notification.item_id}/pay" if notification.is_highest_bidder else None,
         }
         await pubsub.publish(f"user:{notification.user_id}", payload)
 
