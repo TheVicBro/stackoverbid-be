@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -41,7 +42,12 @@ def update_item(db: Session, item: models.Item, update_in: schemas.ItemUpdate) -
 
 
 def list_active_items(db: Session, keyword: Optional[str] = None) -> List[models.Item]:
-    query = db.query(models.Item).filter(models.Item.status == "active")
+    now = datetime.now(timezone.utc)
+    query = (
+        db.query(models.Item)
+        .filter(models.Item.status == "active")
+        .filter(models.Item.end_time > now)
+    )
     if keyword:
         like_pattern = f"%{keyword}%"
         query = query.filter(models.Item.title.ilike(like_pattern))
