@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -36,6 +36,6 @@ def get_item(
     """UC2.3 – View details of a specific auction item."""
     item = item_dao.get_item(db, item_id)
     if not item:
-        raise HTTPException(status_code=404, detail="Item not found.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found.")
     return schemas.Item.model_validate(item)
 
