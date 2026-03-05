@@ -26,7 +26,6 @@ def create_order(
         expedited_shipping=expedited_shipping,
     )
     db.add(order)
-    db.commit()
-    db.refresh(order)
+    db.flush()  # caller (service layer) owns the transaction commit
     return order
 

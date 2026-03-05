@@ -1,5 +1,5 @@
-from fastapi import HTTPException, status  # type: ignore[import]
-from sqlalchemy.orm import Session  # type: ignore[import]
+from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
 
 from app.daos import item_dao, order_dao, user_dao
 from app.models import models
@@ -62,6 +62,6 @@ def process_payment(
 
     item.status = "paid"
     db.commit()
-    db.refresh(item)
+    db.refresh(order)
 
     return order

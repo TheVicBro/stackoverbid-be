@@ -1,6 +1,7 @@
 from typing import Awaitable, Callable, Dict, List, Optional, Set
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
+from jose import JWTError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -66,7 +67,12 @@ async def websocket_notifications(
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    current_user = get_user_from_token(db, token)
+    try:
+        current_user = get_user_from_token(db, token)
+    except (HTTPException, JWTError):
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
     if current_user.id != user_id:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
@@ -97,7 +103,18 @@ def list_notifications(
 
 
 @router.post("/items/{item_id}/broadcast-end")
-async def broadcast_auction_end(item_id: int, db: Session = Depends(get_db)) -> dict:
+async def broadcast_auction_end(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+) -> dict:
+    from app.daos import item_dao
+
+    item = item_dao.get_item(db, item_id)
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found.")
+    if item.seller_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the seller can close their auction.")
     notifications_to_send = notification_service.close_auction_and_create_notifications(db, item_id)
 
     for notification in notifications_to_send:

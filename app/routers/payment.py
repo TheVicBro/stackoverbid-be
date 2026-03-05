@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.daos import item_dao
+from app.daos import item_dao, order_dao
 from app.database import get_db
 from app.models import models
 from app.schemas import schemas
@@ -52,10 +52,6 @@ def get_receipt(
     current_user: models.User = Depends(get_current_user),
 ):
     """Fetch a past order receipt (e.g. for 'View receipt' or order history)."""
-    from fastapi import HTTPException, status  # type: ignore[import]
-
-    from app.daos import order_dao
-
     order = order_dao.get_order_by_id(db, order_id)
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found.")
