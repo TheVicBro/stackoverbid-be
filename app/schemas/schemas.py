@@ -66,7 +66,9 @@ class ItemCreate(BaseModel):
     @field_validator("end_time")
     @classmethod
     def end_time_in_future(cls, v: datetime) -> datetime:
-        if v.replace(tzinfo=timezone.utc) <= datetime.now(timezone.utc):
+        # Naive datetimes are assumed UTC; aware datetimes are converted to UTC.
+        v_utc = v.replace(tzinfo=timezone.utc) if v.tzinfo is None else v.astimezone(timezone.utc)
+        if v_utc <= datetime.now(timezone.utc):
             raise ValueError("End time must be in the future.")
         return v
 
