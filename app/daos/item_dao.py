@@ -28,7 +28,11 @@ def get_item(db: Session, item_id: int) -> Optional[models.Item]:
 
 
 def update_item(db: Session, item: models.Item, update_in: schemas.ItemUpdate) -> models.Item:
-    update_data = update_in.model_dump(exclude_unset=True)
+    update_data = {
+        field: value
+        for field, value in update_in.model_dump(exclude_unset=True).items()
+        if value is not None
+    }
     for field, value in update_data.items():
         setattr(item, field, value)
     db.commit()
