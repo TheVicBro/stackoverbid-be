@@ -20,7 +20,19 @@ def create_item(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    """UC7 – Seller lists a new auction item."""
     return auction_service.create_item(db, item, seller_id=current_user.id)
+
+
+@router.patch("/items/{item_id}", response_model=schemas.Item)
+def edit_item(
+    item_id: int,
+    update: schemas.ItemUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """UC8 – Seller edits title/description of their item (blocked if bids exist)."""
+    return auction_service.edit_item(db, item_id=item_id, seller_id=current_user.id, update_in=update)
 
 
 @router.post("/items/{item_id}/bid", response_model=schemas.Bid)

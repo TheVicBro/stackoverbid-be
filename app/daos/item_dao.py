@@ -27,6 +27,19 @@ def get_item(db: Session, item_id: int) -> Optional[models.Item]:
     return db.query(models.Item).filter(models.Item.id == item_id).first()
 
 
+def update_item(db: Session, item: models.Item, update_in: schemas.ItemUpdate) -> models.Item:
+    update_data = {
+        field: value
+        for field, value in update_in.model_dump(exclude_unset=True).items()
+        if value is not None
+    }
+    for field, value in update_data.items():
+        setattr(item, field, value)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
 def list_active_items(db: Session, keyword: Optional[str] = None) -> List[models.Item]:
     query = db.query(models.Item).filter(models.Item.status == "active")
     if keyword:

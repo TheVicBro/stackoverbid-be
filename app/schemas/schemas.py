@@ -90,6 +90,27 @@ class Item(BaseModel):
         from_attributes = True
 
 
+class ItemUpdate(BaseModel):
+    """Partial update schema for UC8. Only title and description may be edited.
+    Fields are optional — omitting one leaves it unchanged."""
+    title: Optional[str] = None
+    description: Optional[str] = None
+
+    @field_validator("title")
+    @classmethod
+    def title_not_empty(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not v.strip():
+            raise ValueError("Title cannot be empty.")
+        return v.strip() if v else v
+
+    @field_validator("description")
+    @classmethod
+    def description_not_empty(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and not v.strip():
+            raise ValueError("Description cannot be empty.")
+        return v.strip() if v else v
+
+
 # --- Bid Schemas ---
 class BidCreate(BaseModel):
     amount: float
