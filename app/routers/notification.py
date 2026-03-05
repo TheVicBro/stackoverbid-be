@@ -1,13 +1,14 @@
-from typing import Awaitable, Callable, Dict, List, Set
+from typing import Awaitable, Callable, Dict, List, Optional, Set
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
+from jose import JWTError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import models
 from app.schemas import schemas
 from app.services import notification_service
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, get_user_from_token
 
 
 router = APIRouter(
@@ -49,9 +50,35 @@ pubsub = InMemoryPubSub()
 
 
 @router.websocket("/ws/{user_id}")
-async def websocket_notifications(websocket: WebSocket, user_id: int) -> None:
+async def websocket_notifications(
+    websocket: WebSocket,
+    user_id: int,
+    db: Session = Depends(get_db),
+) -> None:
+    # Require JWT and ensure the caller can only subscribe to their own topic.
+    token: Optional[str] = None
+    auth_header = websocket.headers.get("authorization")
+    if auth_header and auth_header.lower().startswith("bearer "):
+        token = auth_header.split(" ", 1)[1].strip()
+    else:
+        token = websocket.query_params.get("token")
+
+    if not token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    try:
+        current_user = get_user_from_token(db, token)
+    except (HTTPException, JWTError):
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    if current_user.id != user_id:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
     await websocket.accept()
-    topic = f"user:{user_id}"
+    topic = f"user:{current_user.id}"
 
     async def send(message: dict) -> None:
         await websocket.send_json(message)
@@ -76,7 +103,18 @@ def list_notifications(
 
 
 @router.post("/items/{item_id}/broadcast-end")
-async def broadcast_auction_end(item_id: int, db: Session = Depends(get_db)) -> dict:
+async def broadcast_auction_end(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+) -> dict:
+    from app.daos import item_dao
+
+    item = item_dao.get_item(db, item_id)
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found.")
+    if item.seller_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the seller can close their auction.")
     notifications_to_send = notification_service.close_auction_and_create_notifications(db, item_id)
 
     for notification in notifications_to_send:

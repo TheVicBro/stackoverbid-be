@@ -1,6 +1,12 @@
+from typing import Optional
+
 from sqlalchemy.orm import Session
 
 from app.models import models
+
+
+def get_order_by_id(db: Session, order_id: int) -> Optional[models.Order]:
+    return db.query(models.Order).filter(models.Order.id == order_id).first()
 
 
 def create_order(
@@ -20,7 +26,6 @@ def create_order(
         expedited_shipping=expedited_shipping,
     )
     db.add(order)
-    db.commit()
-    db.refresh(order)
+    db.flush()  # caller (service layer) owns the transaction commit
     return order
 

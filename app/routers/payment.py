@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.daos import item_dao, order_dao
 from app.database import get_db
 from app.models import models
 from app.schemas import schemas
@@ -14,15 +15,47 @@ router = APIRouter(
 )
 
 
-@router.post("/items/{item_id}/pay")
+def _build_receipt(order: models.Order, item, message: str = "Payment successful.") -> schemas.Receipt:
+    shipping_time_days = item.shipping_time_days if item else 0
+    return schemas.Receipt(
+        order_id=order.id,
+        item_id=order.item_id,
+        item_title=item.title if item else "",
+        amount_paid=order.amount_paid,
+        shipping_address=order.shipping_address,
+        shipping_time_days=shipping_time_days,
+        expedited_shipping=order.expedited_shipping,
+        paid_at=order.created_at,
+        message=message,
+    )
+
+
+@router.post("/items/{item_id}/pay", response_model=schemas.Receipt)
 def process_payment(
     item_id: int,
     payment: schemas.PaymentRequest,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """UC5 – The winning bidder pays for the item."""
+    """Submit payment for a won item. Returns a receipt you can display on a confirmation page."""
     order = payment_service.process_payment(
         db, item_id=item_id, user_id=current_user.id, payment=payment
     )
-    return {"message": f"Payment processed for item {item_id}", "order_id": order.id}
+    item = item_dao.get_item(db, order.item_id)
+    return _build_receipt(order, item)
+
+
+@router.get("/orders/{order_id}/receipt", response_model=schemas.Receipt)
+def get_receipt(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Fetch a past order receipt (e.g. for 'View receipt' or order history)."""
+    order = order_dao.get_order_by_id(db, order_id)
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found.")
+    if order.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only view your own receipts.")
+    item = item_dao.get_item(db, order.item_id)
+    return _build_receipt(order, item, message="Order receipt.")
