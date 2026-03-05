@@ -42,7 +42,7 @@ def update_item(db: Session, item: models.Item, update_in: schemas.ItemUpdate) -
 
 
 def list_active_items(db: Session, keyword: Optional[str] = None) -> List[models.Item]:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC to match SQLite storage
     query = (
         db.query(models.Item)
         .filter(models.Item.status == "active")
