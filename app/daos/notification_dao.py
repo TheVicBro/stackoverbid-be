@@ -1,6 +1,6 @@
 from typing import List
 
-from sqlalchemy.orm import Session  # type: ignore[import]
+from sqlalchemy.orm import Session
 
 from app.models import models
 
