@@ -17,6 +17,7 @@ def create_order(
     amount_paid: float,
     shipping_address: str,
     expedited_shipping: bool,
+    shipping_time_days: int = 5,
 ) -> models.Order:
     order = models.Order(
         item_id=item_id,
@@ -24,6 +25,7 @@ def create_order(
         amount_paid=amount_paid,
         shipping_address=shipping_address,
         expedited_shipping=expedited_shipping,
+        shipping_time_days=shipping_time_days,
     )
     db.add(order)
     db.flush()  # caller (service layer) owns the transaction commit

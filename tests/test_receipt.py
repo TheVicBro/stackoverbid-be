@@ -59,6 +59,7 @@ class TestReceipt:
         receipt = pay_resp.json()
         assert receipt["expedited_shipping"] is True
         assert receipt["amount_paid"] == 70.0  # 50 + 20 expedited
+        assert receipt["shipping_time_days"] == 3  # 7 // 2 via ExpeditedShipping strategy
 
     def test_receipt_contains_required_fields(self, client, db, create_user, create_item, create_bid):
         """Receipt has all expected fields."""

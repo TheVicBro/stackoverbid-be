@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.daos import item_dao, order_dao, user_dao
 from app.models import models
 from app.schemas import schemas
+from app.services.shipping_strategy import get_shipping_strategy
 
 
 def process_payment(
@@ -47,9 +48,9 @@ def process_payment(
             detail="Shipping address is required (provide it in the request or in your profile).",
         )
 
-    amount_paid = item.current_price
-    if payment.expedited_shipping:
-        amount_paid += item.expedited_shipping_cost
+    strategy = get_shipping_strategy(payment.expedited_shipping)
+    amount_paid = strategy.calculate(item.current_price, item)
+    shipping_days = strategy.estimated_days(item)
 
     order = order_dao.create_order(
         db,
@@ -58,6 +59,7 @@ def process_payment(
         amount_paid=amount_paid,
         shipping_address=shipping_address,
         expedited_shipping=payment.expedited_shipping,
+        shipping_time_days=shipping_days,
     )
 
     item.status = "paid"
