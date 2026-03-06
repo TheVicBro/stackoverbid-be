@@ -294,3 +294,9 @@ class Notification(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class BroadcastEndResponse(BaseModel):
+    """Response for the broadcast-end endpoint."""
+    message: str
+    links: List[Link] = []

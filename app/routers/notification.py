@@ -113,12 +113,12 @@ def list_notifications(
     return result
 
 
-@router.post("/items/{item_id}/broadcast-end")
+@router.post("/items/{item_id}/broadcast-end", response_model=schemas.BroadcastEndResponse)
 async def broadcast_auction_end(
     item_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
-) -> dict:
+) -> schemas.BroadcastEndResponse:
     from app.daos import item_dao
 
     item = item_dao.get_item(db, item_id)
@@ -140,5 +140,11 @@ async def broadcast_auction_end(
         }
         await pubsub.publish(f"user:{notification.user_id}", payload)
 
-    return {"message": "Notifications broadcast to all bidders"}
+    return schemas.BroadcastEndResponse(
+        message="Notifications broadcast to all bidders",
+        links=[
+            schemas.Link(rel="item", href=f"/catalogue/items/{item_id}", method="GET"),
+            schemas.Link(rel="notifications", href="/notifications/", method="GET"),
+        ],
+    )
 

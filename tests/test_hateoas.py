@@ -180,3 +180,22 @@ class TestNotificationLinks:
         rels = {l["rel"] for l in notifs[0]["links"]}
         assert "item" in rels
         assert "pay" not in rels
+
+    def test_broadcast_end_has_links(self, client, create_user, create_item, create_bid):
+        """broadcast-end response includes item and notifications links."""
+        seller, seller_token = create_user(username="seller", password="password123")
+        buyer, _ = create_user(username="buyer", password="password123")
+        past = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
+        item = create_item(seller_id=seller.id, starting_price=10.0, end_time=past)
+        create_bid(item_id=item.id, user_id=buyer.id, amount=20.0)
+
+        resp = client.post(
+            f"/notifications/items/{item.id}/broadcast-end",
+            headers=auth_header(seller_token),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "links" in body
+        rels = {l["rel"] for l in body["links"]}
+        assert "item" in rels
+        assert "notifications" in rels
