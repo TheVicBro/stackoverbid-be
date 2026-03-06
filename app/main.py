@@ -1,3 +1,7 @@
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from fastapi import FastAPI
 from app.database import engine, Base
 from app.routers import auth, catalogue, auction, payment, notification
