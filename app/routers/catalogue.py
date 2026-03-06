@@ -1,12 +1,12 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import models
 from app.schemas import schemas
-from app.daos import item_dao
+from app.services import catalogue_service
 from app.utils.auth import get_current_user
 
 
@@ -23,7 +23,7 @@ def get_items(
     current_user: models.User = Depends(get_current_user),
 ):
     """UC2 – Browse / search active auction items (requires login)."""
-    items = item_dao.list_active_items(db, keyword=keyword)
+    items = catalogue_service.list_active_items(db, keyword=keyword)
     result = []
     for item in items:
         item_schema = schemas.Item.model_validate(item)
@@ -42,9 +42,7 @@ def get_item(
     current_user: models.User = Depends(get_current_user),
 ):
     """UC2.3 – View details of a specific auction item."""
-    item = item_dao.get_item(db, item_id)
-    if not item:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found.")
+    item = catalogue_service.get_item(db, item_id)
     result = schemas.Item.model_validate(item)
     result.links = [
         schemas.Link(rel="self", href=f"/catalogue/items/{item_id}", method="GET"),
