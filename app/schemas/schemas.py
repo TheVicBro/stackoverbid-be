@@ -4,12 +4,35 @@ from datetime import datetime, timezone
 
 
 # --- User Schemas ---
+USERNAME_MIN_LENGTH = 3
+PASSWORD_MIN_LENGTH = 8
+
+
 class UserCreate(BaseModel):
     username: str
     password: str
     first_name: str
     last_name: str
     address: str
+
+    @field_validator("username")
+    @classmethod
+    def username_not_empty_and_min_length(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Username cannot be empty.")
+        if len(v) < USERNAME_MIN_LENGTH:
+            raise ValueError(f"Username must be at least {USERNAME_MIN_LENGTH} characters.")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def password_not_empty_and_min_length(cls, v: str) -> str:
+        if not v:
+            raise ValueError("Password cannot be empty.")
+        if len(v) < PASSWORD_MIN_LENGTH:
+            raise ValueError(f"Password must be at least {PASSWORD_MIN_LENGTH} characters.")
+        return v
 
 
 class User(BaseModel):
@@ -26,6 +49,20 @@ class User(BaseModel):
 class UserLogin(BaseModel):
     username: str
     password: str
+
+    @field_validator("username")
+    @classmethod
+    def username_not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Username cannot be empty.")
+        return v.strip()
+
+    @field_validator("password")
+    @classmethod
+    def password_not_empty(cls, v: str) -> str:
+        if not v:
+            raise ValueError("Password cannot be empty.")
+        return v
 
 
 class Token(BaseModel):
@@ -128,6 +165,21 @@ class Bid(BaseModel):
 
 
 # --- Payment Schemas ---
+def _luhn_check(card_number: str) -> bool:
+    """Validate card number using Luhn algorithm."""
+    digits = [int(d) for d in card_number if d.isdigit()]
+    if len(digits) < 13:
+        return False
+    total = 0
+    for i, d in enumerate(reversed(digits)):
+        if i % 2 == 1:
+            d *= 2
+            if d > 9:
+                d -= 9
+        total += d
+    return total % 10 == 0
+
+
 class PaymentRequest(BaseModel):
     credit_card_number: str
     name_on_card: str
@@ -135,6 +187,63 @@ class PaymentRequest(BaseModel):
     security_code: str
     expedited_shipping: bool = False
     shipping_address: Optional[str] = None  # If omitted, user's profile address is used
+
+    @field_validator("credit_card_number")
+    @classmethod
+    def validate_card_number(cls, v: str) -> str:
+        digits = "".join(c for c in v if c.isdigit())
+        if len(digits) < 13 or len(digits) > 19:
+            raise ValueError("Card number must be 13 to 19 digits.")
+        if not _luhn_check(digits):
+            raise ValueError("Invalid card number.")
+        return digits
+
+    @field_validator("expiration_date")
+    @classmethod
+    def validate_expiry(cls, v: str) -> str:
+        v = v.strip().replace(" ", "")
+        if "/" in v:
+            parts = v.split("/")
+        elif "-" in v:
+            parts = v.split("-")
+        else:
+            raise ValueError("Expiration must be MM/YY or MM-YY.")
+        if len(parts) != 2:
+            raise ValueError("Expiration must be MM/YY or MM-YY.")
+        try:
+            month, year = int(parts[0]), int(parts[1])
+        except ValueError:
+            raise ValueError("Expiration must be MM/YY or MM-YY.")
+        if month < 1 or month > 12:
+            raise ValueError("Month must be 01-12.")
+        if year < 0 or year > 99:
+            raise ValueError("Year must be 00-99.")
+        # Interpret YY as 20YY for 00-99
+        full_year = 2000 + year if year < 100 else year
+        now = datetime.now(timezone.utc)
+        expiry = now.replace(year=full_year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0)
+        # Card valid through end of last day of expiry month
+        from calendar import monthrange
+        last_day = monthrange(full_year, month)[1]
+        end_of_month = expiry.replace(day=last_day, hour=23, minute=59, second=59, microsecond=999999)
+        if end_of_month < now:
+            raise ValueError("Card has expired.")
+        return v
+
+    @field_validator("security_code")
+    @classmethod
+    def validate_cvv(cls, v: str) -> str:
+        digits = "".join(c for c in v if c.isdigit())
+        if len(digits) not in (3, 4):
+            raise ValueError("Security code must be 3 or 4 digits.")
+        return digits
+
+    @field_validator("name_on_card")
+    @classmethod
+    def name_on_card_not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Name on card cannot be empty.")
+        return v.strip()
 
 
 class Receipt(BaseModel):

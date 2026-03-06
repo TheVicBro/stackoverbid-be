@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 from passlib.context import CryptContext
@@ -12,7 +13,7 @@ from app.database import get_db
 from app.models import models
 
 ALGORITHM = "HS256"
-SECRET_KEY = "examplekey"
+SECRET_KEY = os.getenv("SECRET_KEY", "examplekey")  # Set SECRET_KEY in .env for production
 ctx = CryptContext(schemes=["bcrypt_sha256"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
