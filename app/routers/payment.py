@@ -16,14 +16,13 @@ router = APIRouter(
 
 
 def _build_receipt(order: models.Order, item, message: str = "Payment successful.") -> schemas.Receipt:
-    shipping_time_days = item.shipping_time_days if item else 0
     receipt = schemas.Receipt(
         order_id=order.id,
         item_id=order.item_id,
         item_title=item.title if item else "",
         amount_paid=order.amount_paid,
         shipping_address=order.shipping_address,
-        shipping_time_days=shipping_time_days,
+        shipping_time_days=order.shipping_time_days,
         expedited_shipping=order.expedited_shipping,
         paid_at=order.created_at,
         message=message,

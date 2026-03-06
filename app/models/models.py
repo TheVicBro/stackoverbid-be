@@ -73,6 +73,7 @@ class Order(Base):
     amount_paid: Mapped[float] = mapped_column()
     shipping_address: Mapped[str] = mapped_column(String)
     expedited_shipping: Mapped[bool] = mapped_column(default=False)
+    shipping_time_days: Mapped[int] = mapped_column(default=5)
     status: Mapped[str] = mapped_column(String, default="paid")
     created_at: Mapped[datetime] = mapped_column(default=func.now())
 

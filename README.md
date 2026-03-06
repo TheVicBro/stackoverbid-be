@@ -77,7 +77,7 @@ Once the server is running:
 pytest tests/ --tb=short
 ```
 
-99 tests covering authentication, catalogue, bidding, auction lifecycle, payment, receipts, notifications, schema validation, and HATEOAS links. Tests use an in-memory SQLite database and are fully isolated.
+106 tests covering authentication, catalogue, bidding, auction lifecycle, payment, receipts, notifications, schema validation, and HATEOAS links. Tests use an in-memory SQLite database and are fully isolated.
 
 ### Curl script
 
@@ -103,12 +103,13 @@ app/
 │   ├── auction.py       # Create item, edit item, place bid
 │   ├── notification.py  # List notifications, broadcast auction end
 │   └── payment.py       # Pay for won item, view receipt
-├── services/            # Business logic layer (Facade pattern)
+├── services/            # Business logic layer
 │   ├── auth_service.py
 │   ├── auction_service.py
 │   ├── catalogue_service.py
 │   ├── notification_service.py
-│   └── payment_service.py
+│   ├── payment_service.py
+│   └── shipping_strategy.py # Strategy pattern for shipping
 ├── daos/                # Data Access Objects (DAO pattern)
 │   ├── user_dao.py
 │   ├── item_dao.py
@@ -119,7 +120,7 @@ app/
 scripts/
 ├── seed_db.py           # Database seeder
 └── curl_tests.sh        # Curl-based API test script
-tests/                   # 99 pytest test cases
+tests/                   # 106 pytest test cases
 ```
 
 ## Design Patterns
@@ -127,9 +128,9 @@ tests/                   # 99 pytest test cases
 | Pattern | Where | Description |
 |---|---|---|
 | **DAO** | `app/daos/` | Each model has a dedicated DAO isolating database queries from business logic. |
-| **Facade / Service Layer** | `app/services/` | Services encapsulate business rules and orchestrate DAO calls; routers stay thin. |
+| **Service Layer** | `app/services/` | Services encapsulate business rules and orchestrate DAO calls; routers stay thin. |
 | **Pub-Sub** | `app/services/notification_service.py` | `InMemoryPubSub` broadcasts auction-end notifications to all bidders. |
-| **Dependency Injection** | All routers | FastAPI's `Depends()` injects database sessions and the current user. |
+| **Strategy** | `app/services/shipping_strategy.py` | Interchangeable `StandardShipping` / `ExpeditedShipping` algorithms behind a common interface, selected at runtime by the payment service. |
 
 ## HATEOAS
 
