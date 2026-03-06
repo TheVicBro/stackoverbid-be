@@ -1,9 +1,17 @@
 import re
 from calendar import monthrange
 from datetime import datetime, timezone
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, field_validator
+
+
+# --- HATEOAS Link Schema ---
+class Link(BaseModel):
+    """HATEOAS hypermedia link."""
+    rel: str
+    href: str
+    method: str
 
 
 # --- User Schemas ---
@@ -44,6 +52,7 @@ class User(BaseModel):
     first_name: str
     last_name: str
     address: str
+    links: List[Link] = []
 
     class Config:
         from_attributes = True
@@ -71,6 +80,7 @@ class UserLogin(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    links: List[Link] = []
 
 
 # --- Item Schemas ---
@@ -125,6 +135,7 @@ class Item(BaseModel):
     status: str
     shipping_time_days: int
     expedited_shipping_cost: float
+    links: List[Link] = []
 
     class Config:
         from_attributes = True
@@ -162,6 +173,7 @@ class Bid(BaseModel):
     user_id: int
     amount: float
     timestamp: datetime
+    links: List[Link] = []
 
     class Config:
         from_attributes = True
@@ -265,6 +277,7 @@ class Receipt(BaseModel):
     expedited_shipping: bool
     paid_at: datetime
     message: str
+    links: List[Link] = []
 
 
 # --- Notification Schemas ---
@@ -277,6 +290,13 @@ class Notification(BaseModel):
     highest_bid_amount: Optional[float] = None
     created_at: datetime
     read: bool
+    links: List[Link] = []
 
     class Config:
         from_attributes = True
+
+
+class BroadcastEndResponse(BaseModel):
+    """Response for the broadcast-end endpoint."""
+    message: str
+    links: List[Link] = []

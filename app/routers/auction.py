@@ -21,7 +21,13 @@ def create_item(
     current_user: models.User = Depends(get_current_user),
 ):
     """UC7 – Seller lists a new auction item."""
-    return auction_service.create_item(db, item, seller_id=current_user.id)
+    result = auction_service.create_item(db, item, seller_id=current_user.id)
+    result.links = [
+        schemas.Link(rel="self", href=f"/catalogue/items/{result.id}", method="GET"),
+        schemas.Link(rel="edit", href=f"/auction/items/{result.id}", method="PATCH"),
+        schemas.Link(rel="bid", href=f"/auction/items/{result.id}/bid", method="POST"),
+    ]
+    return result
 
 
 @router.patch("/items/{item_id}", response_model=schemas.Item)
@@ -32,7 +38,12 @@ def edit_item(
     current_user: models.User = Depends(get_current_user),
 ):
     """UC8 – Seller edits title/description of their item (blocked if bids exist)."""
-    return auction_service.edit_item(db, item_id=item_id, seller_id=current_user.id, update_in=update)
+    result = auction_service.edit_item(db, item_id=item_id, seller_id=current_user.id, update_in=update)
+    result.links = [
+        schemas.Link(rel="self", href=f"/catalogue/items/{item_id}", method="GET"),
+        schemas.Link(rel="bid", href=f"/auction/items/{item_id}/bid", method="POST"),
+    ]
+    return result
 
 
 @router.post("/items/{item_id}/bid", response_model=schemas.Bid)
@@ -43,4 +54,8 @@ def place_bid(
     current_user: models.User = Depends(get_current_user),
 ):
     """UC3 – A bidder places a bid on an item."""
-    return auction_service.place_bid(db, item_id=item_id, user_id=current_user.id, bid_in=bid)
+    result = auction_service.place_bid(db, item_id=item_id, user_id=current_user.id, bid_in=bid)
+    result.links = [
+        schemas.Link(rel="item", href=f"/catalogue/items/{item_id}", method="GET"),
+    ]
+    return result
