@@ -1,6 +1,9 @@
-from pydantic import BaseModel, field_validator
-from typing import Optional
+import re
+from calendar import monthrange
 from datetime import datetime, timezone
+from typing import Optional
+
+from pydantic import BaseModel, field_validator
 
 
 # --- User Schemas ---
@@ -191,7 +194,10 @@ class PaymentRequest(BaseModel):
     @field_validator("credit_card_number")
     @classmethod
     def validate_card_number(cls, v: str) -> str:
-        digits = "".join(c for c in v if c.isdigit())
+        cleaned = v.strip()
+        if not re.match(r'^[\d\s\-]+$', cleaned):
+            raise ValueError("Card number must contain only digits, spaces, or hyphens.")
+        digits = re.sub(r'[\s\-]', '', cleaned)
         if len(digits) < 13 or len(digits) > 19:
             raise ValueError("Card number must be 13 to 19 digits.")
         if not _luhn_check(digits):
@@ -210,6 +216,8 @@ class PaymentRequest(BaseModel):
             raise ValueError("Expiration must be MM/YY or MM-YY.")
         if len(parts) != 2:
             raise ValueError("Expiration must be MM/YY or MM-YY.")
+        if len(parts[0]) != 2 or len(parts[1]) != 2:
+            raise ValueError("Expiration must be MM/YY or MM-YY (two digits each).")
         try:
             month, year = int(parts[0]), int(parts[1])
         except ValueError:
@@ -223,7 +231,6 @@ class PaymentRequest(BaseModel):
         now = datetime.now(timezone.utc)
         expiry = now.replace(year=full_year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0)
         # Card valid through end of last day of expiry month
-        from calendar import monthrange
         last_day = monthrange(full_year, month)[1]
         end_of_month = expiry.replace(day=last_day, hour=23, minute=59, second=59, microsecond=999999)
         if end_of_month < now:
@@ -233,10 +240,12 @@ class PaymentRequest(BaseModel):
     @field_validator("security_code")
     @classmethod
     def validate_cvv(cls, v: str) -> str:
-        digits = "".join(c for c in v if c.isdigit())
-        if len(digits) not in (3, 4):
+        v = v.strip()
+        if not v.isdigit():
+            raise ValueError("Security code must contain only digits.")
+        if len(v) not in (3, 4):
             raise ValueError("Security code must be 3 or 4 digits.")
-        return digits
+        return v
 
     @field_validator("name_on_card")
     @classmethod
