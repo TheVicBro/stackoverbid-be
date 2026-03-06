@@ -99,7 +99,18 @@ def list_notifications(
 ) -> List[schemas.Notification]:
     """Return notifications for the authenticated user."""
     notifications = notification_service.list_notifications_for_user(db, current_user.id)
-    return [schemas.Notification.model_validate(n) for n in notifications]
+    result = []
+    for n in notifications:
+        notif = schemas.Notification.model_validate(n)
+        notif.links = [
+            schemas.Link(rel="item", href=f"/catalogue/items/{notif.item_id}", method="GET"),
+        ]
+        if notif.is_highest_bidder:
+            notif.links.append(
+                schemas.Link(rel="pay", href=f"/payment/items/{notif.item_id}/pay", method="POST")
+            )
+        result.append(notif)
+    return result
 
 
 @router.post("/items/{item_id}/broadcast-end")

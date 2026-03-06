@@ -17,7 +17,7 @@ router = APIRouter(
 
 def _build_receipt(order: models.Order, item, message: str = "Payment successful.") -> schemas.Receipt:
     shipping_time_days = item.shipping_time_days if item else 0
-    return schemas.Receipt(
+    receipt = schemas.Receipt(
         order_id=order.id,
         item_id=order.item_id,
         item_title=item.title if item else "",
@@ -28,6 +28,11 @@ def _build_receipt(order: models.Order, item, message: str = "Payment successful
         paid_at=order.created_at,
         message=message,
     )
+    receipt.links = [
+        schemas.Link(rel="self", href=f"/payment/orders/{order.id}/receipt", method="GET"),
+        schemas.Link(rel="catalogue", href="/catalogue/items", method="GET"),
+    ]
+    return receipt
 
 
 @router.post("/items/{item_id}/pay", response_model=schemas.Receipt)
