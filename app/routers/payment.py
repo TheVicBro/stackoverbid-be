@@ -41,7 +41,6 @@ def process_payment(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """Submit payment for a won item. Returns a receipt you can display on a confirmation page."""
     order = payment_service.process_payment(
         db, item_id=item_id, user_id=current_user.id, payment=payment
     )
@@ -55,7 +54,6 @@ def get_receipt(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """Fetch a past order receipt (e.g. for 'View receipt' or order history)."""
     order = order_dao.get_order_by_id(db, order_id)
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found.")

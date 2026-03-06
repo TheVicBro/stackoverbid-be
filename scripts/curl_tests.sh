@@ -1,16 +1,11 @@
 #!/usr/bin/env bash
-# =============================================================================
-# StackOverbid API – curl script
-# =============================================================================
-# Demonstrates the main use-case flow and robustness checks.
+# StackOverbid API curl test script
 #
-# PREREQUISITES
+# Requires:
 #   1. Server running:  uvicorn app.main:app --reload
 #   2. Fresh database:  delete stackoverbid.db before running
 #
-# USAGE
-#   bash scripts/curl_tests.sh
-# =============================================================================
+# Usage: bash scripts/curl_tests.sh
 
 BASE_URL="http://localhost:8000"
 
@@ -24,7 +19,6 @@ echo "=============================="
 echo " PART 1: Main Use-Case Flow"
 echo "=============================="
 
-# ── UC1: Sign Up ─────────────────────────────────────────────────────────────
 echo ""
 echo "--- UC1: Sign Up (seller + 2 bidders) ---"
 
@@ -43,7 +37,6 @@ curl -sS -X POST "$BASE_URL/auth/signup" \
   -d '{"username":"bidder2","password":"password123","first_name":"Carol","last_name":"Lee","address":"789 Pine Rd"}'
 echo ""
 
-# ── UC1.5: Login ─────────────────────────────────────────────────────────────
 echo ""
 echo "--- UC1.5: Login ---"
 
@@ -65,7 +58,6 @@ RESP=$(curl -sS -X POST "$BASE_URL/auth/login" \
 echo "$RESP"
 BIDDER2_TOKEN=$(json_val "$RESP" access_token)
 
-# ── UC7: Create Auction Item ─────────────────────────────────────────────────
 echo ""
 echo "--- UC7: Seller Creates Auction Item ---"
 
@@ -87,7 +79,7 @@ RESP=$(curl -sS -X POST "$BASE_URL/auction/items" \
 echo "$RESP"
 EDIT_ITEM_ID=$(json_val "$RESP" id)
 
-# ── UC8: Edit Item ───────────────────────────────────────────────────────────
+
 echo ""
 echo "--- UC8: Seller Edits Item ---"
 
@@ -97,7 +89,6 @@ curl -sS -X PATCH "$BASE_URL/auction/items/$EDIT_ITEM_ID" \
   -d '{"title":"Antique Lamp","description":"A beautifully restored antique lamp"}'
 echo ""
 
-# ── UC2: Browse / Search Catalogue ───────────────────────────────────────────
 echo ""
 echo "--- UC2: Browse Catalogue ---"
 
@@ -112,7 +103,6 @@ curl -sS -X GET "$BASE_URL/catalogue/items?keyword=Guitar" \
   -H "Authorization: Bearer $BIDDER1_TOKEN"
 echo ""
 
-# ── UC2.3: View Item Details ─────────────────────────────────────────────────
 echo ""
 echo "--- UC2.3: View Item Details ---"
 
@@ -120,7 +110,7 @@ curl -sS -X GET "$BASE_URL/catalogue/items/$ITEM_ID" \
   -H "Authorization: Bearer $BIDDER1_TOKEN"
 echo ""
 
-# ── UC3: Place Bids ──────────────────────────────────────────────────────────
+
 echo ""
 echo "--- UC3: Place Bids (competitive bidding) ---"
 
@@ -142,7 +132,7 @@ curl -sS -X POST "$BASE_URL/auction/items/$ITEM_ID/bid" \
   -d '{"amount":750}'
 echo ""
 
-# ── Auction End ──────────────────────────────────────────────────────────────
+
 echo ""
 echo "--- Waiting for auction to expire (6s)... ---"
 sleep 6
@@ -153,7 +143,7 @@ curl -sS -X POST "$BASE_URL/notifications/items/$ITEM_ID/broadcast-end" \
   -H "Authorization: Bearer $SELLER_TOKEN"
 echo ""
 
-# ── Notifications ────────────────────────────────────────────────────────────
+
 echo ""
 echo "--- Notifications (winner) ---"
 
@@ -168,7 +158,7 @@ curl -sS -X GET "$BASE_URL/notifications/" \
   -H "Authorization: Bearer $BIDDER2_TOKEN"
 echo ""
 
-# ── UC4/UC5: Payment ─────────────────────────────────────────────────────────
+
 echo ""
 echo "--- UC4/UC5: Winner Pays ---"
 
@@ -179,7 +169,7 @@ RESP=$(curl -sS -X POST "$BASE_URL/payment/items/$ITEM_ID/pay" \
 echo "$RESP"
 ORDER_ID=$(json_val "$RESP" order_id)
 
-# ── UC6: View Receipt ────────────────────────────────────────────────────────
+
 echo ""
 echo "--- UC6: View Receipt ---"
 
@@ -193,7 +183,7 @@ echo "=============================="
 echo " PART 2: Robustness Tests"
 echo "=============================="
 
-# ── Auth errors ──────────────────────────────────────────────────────────────
+
 echo ""
 echo "--- Duplicate username (expect 400) ---"
 curl -sS -X POST "$BASE_URL/auth/signup" \
@@ -228,7 +218,7 @@ curl -sS -X GET "$BASE_URL/catalogue/items/1" \
   -H "Authorization: Bearer invalidtoken123"
 echo ""
 
-# ── Item creation errors ─────────────────────────────────────────────────────
+
 echo ""
 echo "--- Empty title (expect 422) ---"
 curl -sS -X POST "$BASE_URL/auction/items" \
@@ -251,7 +241,7 @@ curl -sS -X POST "$BASE_URL/auction/items" \
   -d "{\"title\":\"Bad\",\"description\":\"Past\",\"starting_price\":10,\"end_time\":\"$(date -u -d '-1 hour' +'%Y-%m-%dT%H:%M:%SZ')\"}"
 echo ""
 
-# ── Bidding errors ───────────────────────────────────────────────────────────
+
 echo ""
 echo "--- Bid on closed auction (expect 400) ---"
 curl -sS -X POST "$BASE_URL/auction/items/$ITEM_ID/bid" \
@@ -274,7 +264,7 @@ curl -sS -X POST "$BASE_URL/auction/items/$EDIT_ITEM_ID/bid" \
   -d '{"amount":100}'
 echo ""
 
-# ── Payment errors ───────────────────────────────────────────────────────────
+
 echo ""
 echo "--- Non-winner tries to pay (expect 400) ---"
 curl -sS -X POST "$BASE_URL/payment/items/$ITEM_ID/pay" \
@@ -311,7 +301,7 @@ curl -sS -X POST "$BASE_URL/payment/items/$ITEM_ID/pay" \
   -d '{"credit_card_number":"4111111111111111","name_on_card":"Bob Jones","expiration_date":"12/30","security_code":"12A"}'
 echo ""
 
-# ── Receipt errors ───────────────────────────────────────────────────────────
+
 echo ""
 echo "--- Other user views receipt (expect 403) ---"
 curl -sS -X GET "$BASE_URL/payment/orders/$ORDER_ID/receipt" \

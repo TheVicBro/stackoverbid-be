@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""
-Seed the database with sample users, items, bids, and notifications.
-Run from project root: python -m scripts.seed_db
-Or: python scripts/seed_db.py (after ensuring app is on PYTHONPATH)
-"""
 import os
 import sys
 from datetime import datetime, timedelta, timezone
@@ -24,7 +19,6 @@ from app.utils.auth import hash_password
 
 
 def run_seed() -> None:
-    """Create tables if needed and populate with sample data."""
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:

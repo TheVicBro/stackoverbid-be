@@ -1,16 +1,12 @@
-"""
-TC8 – Auction end: broadcast-end closes the auction and blocks further bids.
-"""
 from datetime import datetime, timedelta, timezone
 
 from tests.conftest import auth_header
 
 
 class TestAuctionLifecycle:
-    """UC4 – Auction end-to-end lifecycle."""
 
     def test_broadcast_end_closes_auction(self, client, create_user, create_item, create_bid):
-        """TC8 – Seller broadcasts end ⇒ item status becomes 'closed'."""
+        """Seller broadcasts end, item status becomes 'closed'."""
         seller, seller_token = create_user(username="seller", password="password123")
         buyer, buyer_token = create_user(username="buyer", password="password123")
         past = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
@@ -23,7 +19,7 @@ class TestAuctionLifecycle:
         )
         assert resp.status_code == 200
 
-        # Item should now be closed — verify by attempting a bid (must fail)
+        # Item should now be closed - verify by attempting a bid
         bid_resp = client.post(
             f"/auction/items/{item.id}/bid",
             json={"amount": 30.0},

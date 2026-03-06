@@ -34,7 +34,6 @@ def access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
 
 
 def get_user_from_token(db: Session, token: str) -> models.User:
-    """Return the authenticated User from a raw JWT string."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -58,8 +57,4 @@ def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> models.User:
-    """Decode the JWT and return the authenticated User ORM object.
-
-    Raises 401 if the token is invalid, expired, or the user no longer exists.
-    """
     return get_user_from_token(db, token)

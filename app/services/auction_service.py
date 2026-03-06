@@ -13,7 +13,6 @@ def create_item(db: Session, item_in: schemas.ItemCreate, seller_id: int) -> sch
 
 
 def edit_item(db: Session, item_id: int, seller_id: int, update_in: schemas.ItemUpdate) -> schemas.Item:
-    """UC8 – Edit title/description of an auction item. Blocked once any bid exists."""
     item = item_dao.get_item(db, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found.")

@@ -1,15 +1,10 @@
-"""
-TC1 – Correct login returns JWT.
-TC2 – Wrong credentials are rejected.
-Additional: signup validation (duplicate username, short password, short username).
-"""
 from tests.conftest import auth_header
 
 
-# ── TC1 · Correct Login ─────────────────────────────────────────────────────
+
 class TestLogin:
     def test_login_success(self, client, create_user):
-        """TC1 – Logging in with valid credentials returns an access token."""
+        """Logging in with valid credentials returns an access token."""
         user, _ = create_user(username="alice", password="password123")
         resp = client.post("/auth/login", json={"username": "alice", "password": "password123"})
         assert resp.status_code == 200
@@ -18,13 +13,13 @@ class TestLogin:
         assert body["token_type"] == "bearer"
 
     def test_login_wrong_password(self, client, create_user):
-        """TC2 – Wrong password is rejected."""
+        """Wrong password is rejected."""
         create_user(username="alice", password="password123")
         resp = client.post("/auth/login", json={"username": "alice", "password": "wrong"})
         assert resp.status_code == 400
 
     def test_login_nonexistent_user(self, client):
-        """TC2 variant – User does not exist."""
+        """Non-existent user is rejected."""
         resp = client.post("/auth/login", json={"username": "ghost", "password": "whatever1"})
         assert resp.status_code == 400
 
@@ -39,7 +34,6 @@ class TestLogin:
         assert resp.status_code == 422
 
 
-# ── Signup ───────────────────────────────────────────────────────────────────
 class TestSignup:
     def test_signup_success(self, client):
         payload = {
@@ -90,7 +84,7 @@ class TestSignup:
         assert resp.status_code == 422
 
     def test_signup_login_roundtrip(self, client):
-        """Sign up, then log in with the same creds — full happy path."""
+        """Sign up, then log in with the same creds."""
         payload = {
             "username": "roundtrip",
             "password": "password123",

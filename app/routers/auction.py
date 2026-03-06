@@ -20,7 +20,7 @@ def create_item(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """UC7 – Seller lists a new auction item."""
+    """List a new auction item."""
     result = auction_service.create_item(db, item, seller_id=current_user.id)
     result.links = [
         schemas.Link(rel="self", href=f"/catalogue/items/{result.id}", method="GET"),
@@ -37,7 +37,7 @@ def edit_item(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """UC8 – Seller edits title/description of their item (blocked if bids exist)."""
+    """Edit title/description of an item (blocked if bids exist)."""
     result = auction_service.edit_item(db, item_id=item_id, seller_id=current_user.id, update_in=update)
     result.links = [
         schemas.Link(rel="self", href=f"/catalogue/items/{item_id}", method="GET"),
@@ -53,7 +53,7 @@ def place_bid(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """UC3 – A bidder places a bid on an item."""
+    """Place a bid on an item."""
     result = auction_service.place_bid(db, item_id=item_id, user_id=current_user.id, bid_in=bid)
     result.links = [
         schemas.Link(rel="item", href=f"/catalogue/items/{item_id}", method="GET"),

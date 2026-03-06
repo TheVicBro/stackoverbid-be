@@ -1,24 +1,16 @@
-"""
-TC13 – Seller creates a valid item.
-TC14 – Create with missing/invalid fields is rejected.
-TC15 – Edit title/description when no bids.
-TC16 – Edit blocked when bids exist.
-"""
 from datetime import datetime, timedelta, timezone
 
 from tests.conftest import auth_header
 
 
 def _future_iso() -> str:
-    """Return a future datetime as an ISO string."""
     return (datetime.now(timezone.utc) + timedelta(days=3)).isoformat()
 
 
 class TestCreateItem:
-    """UC7 – Seller lists a new auction item."""
 
     def test_create_item_success(self, client, create_user):
-        """TC13 – Valid item creation."""
+        """Valid item creation."""
         _, token = create_user(username="seller", password="password123")
         payload = {
             "title": "Brand New Widget",
@@ -34,7 +26,7 @@ class TestCreateItem:
         assert body["status"] == "active"
 
     def test_create_item_missing_title(self, client, create_user):
-        """TC14 – Empty title rejected."""
+        """Empty title rejected."""
         _, token = create_user(username="seller", password="password123")
         payload = {
             "title": "",
@@ -46,7 +38,7 @@ class TestCreateItem:
         assert resp.status_code == 422
 
     def test_create_item_negative_price(self, client, create_user):
-        """TC14 – Negative starting price rejected."""
+        """Negative starting price rejected."""
         _, token = create_user(username="seller", password="password123")
         payload = {
             "title": "Widget",
@@ -58,7 +50,7 @@ class TestCreateItem:
         assert resp.status_code == 422
 
     def test_create_item_past_end_time(self, client, create_user):
-        """TC14 – End time in the past rejected."""
+        """End time in the past rejected."""
         _, token = create_user(username="seller", password="password123")
         past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
         payload = {
@@ -71,7 +63,7 @@ class TestCreateItem:
         assert resp.status_code == 422
 
     def test_create_item_missing_description(self, client, create_user):
-        """TC14 – Empty description rejected."""
+        """Empty description rejected."""
         _, token = create_user(username="seller", password="password123")
         payload = {
             "title": "Widget",
@@ -84,10 +76,9 @@ class TestCreateItem:
 
 
 class TestEditItem:
-    """UC8 – Seller edits item (title / description)."""
 
     def test_edit_title_no_bids(self, client, create_user, create_item):
-        """TC15 – Seller can edit title when there are no bids."""
+        """Seller can edit title when there are no bids."""
         seller, token = create_user(username="seller", password="password123")
         item = create_item(seller_id=seller.id, title="Old Title")
 
@@ -100,7 +91,7 @@ class TestEditItem:
         assert resp.json()["title"] == "New Title"
 
     def test_edit_description_no_bids(self, client, create_user, create_item):
-        """TC15 – Seller can edit description when there are no bids."""
+        """Seller can edit description when there are no bids."""
         seller, token = create_user(username="seller", password="password123")
         item = create_item(seller_id=seller.id, description="Old desc")
 
@@ -113,7 +104,7 @@ class TestEditItem:
         assert resp.json()["description"] == "Updated desc"
 
     def test_edit_blocked_with_bids(self, client, create_user, create_item, create_bid):
-        """TC16 – Edit blocked when bids exist."""
+        """Edit blocked when bids exist."""
         seller, token = create_user(username="seller", password="password123")
         buyer, _ = create_user(username="buyer", password="password123")
         item = create_item(seller_id=seller.id, starting_price=10.0)

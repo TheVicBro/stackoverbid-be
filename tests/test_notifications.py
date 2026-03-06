@@ -1,6 +1,3 @@
-"""
-Notification tests: auction-end creates notifications, listing returns user-specific notifications.
-"""
 from datetime import datetime, timedelta, timezone
 
 from tests.conftest import auth_header

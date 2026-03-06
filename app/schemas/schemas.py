@@ -6,15 +6,12 @@ from typing import List, Optional
 from pydantic import BaseModel, field_validator
 
 
-# --- HATEOAS Link Schema ---
 class Link(BaseModel):
-    """HATEOAS hypermedia link."""
     rel: str
     href: str
     method: str
 
 
-# --- User Schemas ---
 USERNAME_MIN_LENGTH = 3
 PASSWORD_MIN_LENGTH = 8
 
@@ -83,7 +80,6 @@ class Token(BaseModel):
     links: List[Link] = []
 
 
-# --- Item Schemas ---
 class ItemCreate(BaseModel):
     title: str
     description: str
@@ -116,7 +112,7 @@ class ItemCreate(BaseModel):
     @field_validator("end_time")
     @classmethod
     def end_time_in_future(cls, v: datetime) -> datetime:
-        # Naive datetimes are assumed UTC; aware datetimes are converted to UTC.
+        # Treat naive datetimes as UTC; convert aware datetimes to UTC.
         v_utc = v.replace(tzinfo=timezone.utc) if v.tzinfo is None else v.astimezone(timezone.utc)
         if v_utc <= datetime.now(timezone.utc):
             raise ValueError("End time must be in the future.")
@@ -142,8 +138,6 @@ class Item(BaseModel):
 
 
 class ItemUpdate(BaseModel):
-    """Partial update schema for UC8. Only title and description may be edited.
-    Fields are optional — omitting one leaves it unchanged."""
     title: Optional[str] = None
     description: Optional[str] = None
 
@@ -162,7 +156,6 @@ class ItemUpdate(BaseModel):
         return v.strip() if v else v
 
 
-# --- Bid Schemas ---
 class BidCreate(BaseModel):
     amount: float
 
@@ -179,9 +172,7 @@ class Bid(BaseModel):
         from_attributes = True
 
 
-# --- Payment Schemas ---
 def _luhn_check(card_number: str) -> bool:
-    """Validate card number using Luhn algorithm."""
     digits = [int(d) for d in card_number if d.isdigit()]
     if len(digits) < 13:
         return False
@@ -280,7 +271,6 @@ class Receipt(BaseModel):
     links: List[Link] = []
 
 
-# --- Notification Schemas ---
 class Notification(BaseModel):
     id: int
     user_id: int
@@ -297,6 +287,5 @@ class Notification(BaseModel):
 
 
 class BroadcastEndResponse(BaseModel):
-    """Response for the broadcast-end endpoint."""
     message: str
     links: List[Link] = []

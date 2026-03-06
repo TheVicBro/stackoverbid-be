@@ -1,20 +1,11 @@
-"""
-TC12 – Receipt includes shipping time, distinguishes standard vs expedited.
-"""
 from datetime import datetime, timedelta, timezone
 
 from tests.conftest import VALID_PAYMENT, auth_header
 
 
 class TestReceipt:
-    """UC6 – Buyer receives a receipt after payment."""
 
     def _setup_and_pay(self, client, db, create_user, create_item, create_bid, expedited=False):
-        """Create users, item, bid, close auction, pay.
-
-        Returns:
-            tuple: (payment response, buyer auth token).
-        """
         seller, seller_token = create_user(username="seller", password="password123")
         buyer, buyer_token = create_user(username="buyer", password="password123")
         past = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
@@ -44,7 +35,7 @@ class TestReceipt:
         return pay_resp, buyer_token
 
     def test_receipt_standard_shipping(self, client, db, create_user, create_item, create_bid):
-        """TC12 – Standard shipping receipt."""
+        """Standard shipping receipt."""
         pay_resp, _ = self._setup_and_pay(client, db, create_user, create_item, create_bid, expedited=False)
         assert pay_resp.status_code == 200
         receipt = pay_resp.json()
@@ -53,7 +44,7 @@ class TestReceipt:
         assert receipt["amount_paid"] == 50.0  # no expedited surcharge
 
     def test_receipt_expedited_shipping(self, client, db, create_user, create_item, create_bid):
-        """TC12 – Expedited shipping adds surcharge to amount."""
+        """Expedited shipping adds surcharge to amount."""
         pay_resp, _ = self._setup_and_pay(client, db, create_user, create_item, create_bid, expedited=True)
         assert pay_resp.status_code == 200
         receipt = pay_resp.json()

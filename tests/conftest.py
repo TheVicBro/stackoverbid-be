@@ -1,11 +1,3 @@
-"""
-Shared pytest fixtures for the StackOverbid test suite.
-
-Uses an in-memory SQLite database so tests are isolated and fast.
-Before each test all tables are created and after each test they are dropped,
-and each test function gets its own database session that is closed when the
-test finishes.
-"""
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -20,9 +12,6 @@ from app.main import app
 from app.models.models import Bid, Item, User
 from app.utils.auth import hash_password, access_token
 
-# ---------------------------------------------------------------------------
-# Database fixtures
-# ---------------------------------------------------------------------------
 engine = create_engine(
     "sqlite://",
     connect_args={"check_same_thread": False},
@@ -33,7 +22,6 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 
 @pytest.fixture(autouse=True)
 def setup_database():
-    """Create all tables before each test and drop them after."""
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
@@ -41,7 +29,6 @@ def setup_database():
 
 @pytest.fixture()
 def db():
-    """Provide a clean database session for a test."""
     session = TestingSessionLocal()
     try:
         yield session
@@ -51,8 +38,6 @@ def db():
 
 @pytest.fixture()
 def client(db):
-    """FastAPI TestClient wired to the test database."""
-
     def _override_get_db():
         try:
             yield db
@@ -65,13 +50,8 @@ def client(db):
     app.dependency_overrides.clear()
 
 
-# ---------------------------------------------------------------------------
-# Helper: create a user directly in the DB and return (user, token) tuple
-# ---------------------------------------------------------------------------
 @pytest.fixture()
 def create_user(db):
-    """Factory fixture: returns a function that creates a user and JWT."""
-
     def _create(
         username: str = "testuser",
         password: str = "password123",
@@ -95,13 +75,8 @@ def create_user(db):
     return _create
 
 
-# ---------------------------------------------------------------------------
-# Helper: create an active auction item directly in the DB
-# ---------------------------------------------------------------------------
 @pytest.fixture()
 def create_item(db):
-    """Factory fixture: returns a function that creates an auction item."""
-
     def _create(
         seller_id: int,
         title: str = "Test Item",
@@ -138,13 +113,8 @@ def create_item(db):
     return _create
 
 
-# ---------------------------------------------------------------------------
-# Helper: create a bid directly in the DB
-# ---------------------------------------------------------------------------
 @pytest.fixture()
 def create_bid(db):
-    """Factory fixture: returns a function that creates a bid."""
-
     def _create(item_id: int, user_id: int, amount: float):
         bid = Bid(item_id=item_id, user_id=user_id, amount=amount)
         db.add(bid)
@@ -155,9 +125,6 @@ def create_bid(db):
     return _create
 
 
-# ---------------------------------------------------------------------------
-# Convenience: a valid payment payload for tests
-# ---------------------------------------------------------------------------
 VALID_PAYMENT = {
     "credit_card_number": "4111111111111111",
     "name_on_card": "Test User",
@@ -168,5 +135,4 @@ VALID_PAYMENT = {
 
 
 def auth_header(token: str) -> dict:
-    """Return an Authorization header dict for a Bearer token."""
     return {"Authorization": f"Bearer {token}"}

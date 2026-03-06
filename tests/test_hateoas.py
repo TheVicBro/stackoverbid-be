@@ -1,13 +1,9 @@
-"""
-HATEOAS link tests – verify every API response includes contextual hypermedia links.
-"""
 from datetime import datetime, timedelta, timezone
 
 from tests.conftest import VALID_PAYMENT, auth_header
 
 
 class TestAuthLinks:
-    """Auth endpoints return navigational links."""
 
     def test_signup_has_login_link(self, client):
         payload = {
@@ -38,7 +34,6 @@ class TestAuthLinks:
 
 
 class TestCatalogueLinks:
-    """Catalogue endpoints return self/bid links."""
 
     def test_item_list_has_links(self, client, create_user, create_item):
         seller, _ = create_user(username="seller", password="password123")
@@ -69,7 +64,6 @@ class TestCatalogueLinks:
 
 
 class TestAuctionLinks:
-    """Auction endpoints return context-appropriate links."""
 
     def test_create_item_has_links(self, client, create_user):
         _, token = create_user(username="seller", password="password123")
@@ -112,7 +106,6 @@ class TestAuctionLinks:
 
 
 class TestPaymentLinks:
-    """Payment/receipt endpoints return self + catalogue links."""
 
     def _close_and_pay(self, client, create_user, create_item, create_bid):
         seller, seller_token = create_user(username="seller", password="password123")
@@ -145,7 +138,6 @@ class TestPaymentLinks:
 
 
 class TestNotificationLinks:
-    """Notification list returns item link + pay link for winners."""
 
     def test_winner_notification_has_pay_link(self, client, create_user, create_item, create_bid):
         seller, seller_token = create_user(username="seller", password="password123")

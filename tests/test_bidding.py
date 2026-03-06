@@ -1,17 +1,12 @@
-"""
-TC6 – Valid bid is accepted.
-TC7 – Invalid bid is rejected (lower/equal amount, seller self-bid, expired, closed).
-"""
 from datetime import datetime, timedelta, timezone
 
 from tests.conftest import auth_header
 
 
 class TestValidBid:
-    """UC3 – Bidder places a valid bid."""
 
     def test_bid_success(self, client, create_user, create_item):
-        """TC6 – A valid bid (higher than current price) is accepted."""
+        """A valid bid (higher than current price) is accepted."""
         seller, _ = create_user(username="seller", password="password123")
         buyer, token = create_user(username="buyer", password="password123")
         item = create_item(seller_id=seller.id, starting_price=10.0)
@@ -56,7 +51,6 @@ class TestValidBid:
 
 
 class TestInvalidBid:
-    """TC7 – Invalid bids are rejected."""
 
     def test_bid_lower_than_current(self, client, create_user, create_item):
         """Bid amount <= current price is rejected."""

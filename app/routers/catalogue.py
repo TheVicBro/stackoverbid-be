@@ -22,7 +22,7 @@ def get_items(
     keyword: Optional[str] = None,
     current_user: models.User = Depends(get_current_user),
 ):
-    """UC2 – Browse / search active auction items (requires login)."""
+    """Browse/search active auction items."""
     items = catalogue_service.list_active_items(db, keyword=keyword)
     result = []
     for item in items:
@@ -41,7 +41,7 @@ def get_item(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """UC2.3 – View details of a specific auction item."""
+    """View details of a specific auction item."""
     item = catalogue_service.get_item(db, item_id)
     result = schemas.Item.model_validate(item)
     result.links = [

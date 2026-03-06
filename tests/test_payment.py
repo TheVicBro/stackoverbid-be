@@ -1,18 +1,11 @@
-"""
-TC9  – Winning bidder can pay for item.
-TC10 – Non-winning bidder is blocked from paying.
-TC11 – Missing or invalid payment fields are rejected (422).
-"""
 from datetime import datetime, timedelta, timezone
 
 from tests.conftest import VALID_PAYMENT, auth_header
 
 
 class TestPaymentSuccess:
-    """UC5 – winning bidder pays for the item."""
 
     def _close_auction(self, client, db, create_user, create_item, create_bid):
-        """Helper: create seller + buyer, make item, bid, close auction. Returns (item, buyer_token, seller_token)."""
         seller, seller_token = create_user(username="seller", password="password123")
         buyer, buyer_token = create_user(username="buyer", password="password123")
         past = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
@@ -32,7 +25,7 @@ class TestPaymentSuccess:
         return item, buyer_token, seller_token
 
     def test_winning_bidder_pays(self, client, db, create_user, create_item, create_bid):
-        """TC9 – Winning bidder can submit payment and receives receipt."""
+        """Winning bidder can submit payment and receives receipt."""
         item, buyer_token, _ = self._close_auction(client, db, create_user, create_item, create_bid)
 
         resp = client.post(
@@ -47,7 +40,7 @@ class TestPaymentSuccess:
         assert "shipping_address" in receipt
 
     def test_non_winner_cannot_pay(self, client, db, create_user, create_item, create_bid):
-        """TC10 – A user who is NOT the highest bidder cannot pay."""
+        """A user who is NOT the highest bidder cannot pay."""
         item, _, seller_token = self._close_auction(client, db, create_user, create_item, create_bid)
         _, other_token = create_user(username="other", password="password123")
 
@@ -72,7 +65,7 @@ class TestPaymentSuccess:
         assert resp.status_code == 400
 
     def test_double_payment_blocked(self, client, db, create_user, create_item, create_bid):
-        """Paying for the same item twice is blocked (status ≠ 'closed' after first pay)."""
+        """Paying for the same item twice is blocked."""
         item, buyer_token, _ = self._close_auction(client, db, create_user, create_item, create_bid)
 
         first = client.post(
@@ -91,7 +84,6 @@ class TestPaymentSuccess:
 
 
 class TestPaymentValidation:
-    """TC11 – Missing or invalid payment fields are rejected."""
 
     def test_empty_card_number(self, client, create_user):
         _, token = create_user()

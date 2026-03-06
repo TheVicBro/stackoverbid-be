@@ -1,16 +1,10 @@
-"""
-TC3 – Search/browse active items by keyword.
-TC4 – Display items with prices.
-TC5 – Select item to view details.
-"""
 from tests.conftest import auth_header
 
 
 class TestBrowseItems:
-    """UC2 – Browse / search active auction items."""
 
     def test_list_all_active_items(self, client, create_user, create_item):
-        """TC4 – Returns all active items with prices."""
+        """Returns all active items with prices."""
         seller, _ = create_user(username="seller", password="password123")
         buyer, token = create_user(username="buyer", password="password123")
         create_item(seller_id=seller.id, title="Widget A", starting_price=25.0)
@@ -26,7 +20,7 @@ class TestBrowseItems:
             assert "starting_price" in item
 
     def test_search_by_keyword(self, client, create_user, create_item):
-        """TC3 – Search returns only items whose title matches the keyword."""
+        """Search returns only items whose title matches the keyword."""
         seller, _ = create_user(username="seller", password="password123")
         _, token = create_user(username="buyer", password="password123")
         create_item(seller_id=seller.id, title="Vintage Guitar")
@@ -62,10 +56,9 @@ class TestBrowseItems:
 
 
 class TestItemDetails:
-    """UC2.3 – View details of a specific item."""
 
     def test_get_item_by_id(self, client, create_user, create_item):
-        """TC5 – Select item returns full detail."""
+        """Select item returns full detail."""
         seller, _ = create_user(username="seller", password="password123")
         _, token = create_user(username="buyer", password="password123")
         item = create_item(seller_id=seller.id, title="Rare Coin", description="Very rare")

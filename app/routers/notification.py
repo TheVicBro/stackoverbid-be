@@ -97,7 +97,6 @@ def list_notifications(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ) -> List[schemas.Notification]:
-    """Return notifications for the authenticated user."""
     notifications = notification_service.list_notifications_for_user(db, current_user.id)
     result = []
     for n in notifications:

@@ -1,6 +1,3 @@
-"""
-Edge-case schema validation tests – PaymentRequest, UserCreate, ItemCreate.
-"""
 import pytest
 from pydantic import ValidationError
 

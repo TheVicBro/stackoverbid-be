@@ -10,7 +10,6 @@ from app.services.shipping_strategy import get_shipping_strategy
 def process_payment(
     db: Session, item_id: int, user_id: int, payment: schemas.PaymentRequest
 ) -> models.Order:
-    """Process payment for a closed auction item. Only the winning bidder can pay."""
     item = item_dao.get_item(db, item_id)
     if not item:
         raise HTTPException(

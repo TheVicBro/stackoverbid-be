@@ -60,7 +60,7 @@ Populate the database with sample users, items, bids, and notifications:
 python -m scripts.seed_db
 ```
 
-This creates three test accounts (`alice`, `bob`, `carol` — all with password `password123`).
+This creates three test accounts (`alice`, `bob`, `carol`, all with password `password123`).
 
 ## API Documentation
 
@@ -77,7 +77,7 @@ Once the server is running:
 pytest tests/ --tb=short
 ```
 
-106 tests covering authentication, catalogue, bidding, auction lifecycle, payment, receipts, notifications, schema validation, and HATEOAS links. Tests use an in-memory SQLite database and are fully isolated.
+Tests cover authentication, catalogue, bidding, auction lifecycle, payment, receipts, notifications, schema validation, and HATEOAS links. Tests use an in-memory SQLite database and are fully isolated.
 
 ### Curl script
 
@@ -93,44 +93,42 @@ bash scripts/curl_tests.sh
 
 ```
 app/
-├── main.py              # Application entry point
-├── database.py          # Database connection and session management (SQLite)
-├── models/models.py     # SQLAlchemy ORM models
-├── schemas/schemas.py   # Pydantic request/response schemas with validators
-├── routers/             # API endpoint handlers
-│   ├── auth.py          # Sign up, login (JWT)
-│   ├── catalogue.py     # Browse / search items, view item details
-│   ├── auction.py       # Create item, edit item, place bid
-│   ├── notification.py  # List notifications, broadcast auction end
-│   └── payment.py       # Pay for won item, view receipt
-├── services/            # Business logic layer
-│   ├── auth_service.py
-│   ├── auction_service.py
-│   ├── catalogue_service.py
-│   ├── notification_service.py
-│   ├── payment_service.py
-│   └── shipping_strategy.py # Strategy pattern for shipping
-├── daos/                # Data Access Objects (DAO pattern)
-│   ├── user_dao.py
-│   ├── item_dao.py
-│   ├── bid_dao.py
-│   ├── order_dao.py
-│   └── notification_dao.py
-└── utils/auth.py        # JWT utilities, password hashing
+  main.py                 - Application entry point
+  database.py             - Database connection and session management (SQLite)
+  models/models.py        - SQLAlchemy ORM models
+  schemas/schemas.py      - Pydantic request/response schemas with validators
+  routers/
+    auth.py               - Sign up, login (JWT)
+    catalogue.py          - Browse / search items, view item details
+    auction.py            - Create item, edit item, place bid
+    notification.py       - List notifications, broadcast auction end
+    payment.py            - Pay for won item, view receipt
+  services/
+    auth_service.py
+    auction_service.py
+    catalogue_service.py
+    notification_service.py
+    payment_service.py
+    shipping_strategy.py  - Strategy pattern for shipping
+  daos/
+    user_dao.py
+    item_dao.py
+    bid_dao.py
+    order_dao.py
+    notification_dao.py
+  utils/auth.py           - JWT utilities, password hashing
 scripts/
-├── seed_db.py           # Database seeder
-└── curl_tests.sh        # Curl-based API test script
-tests/                   # 106 pytest test cases
+  seed_db.py              - Database seeder
+  curl_tests.sh           - Curl-based API test script
+tests/                    - pytest test cases
 ```
 
 ## Design Patterns
 
-| Pattern | Where | Description |
-|---|---|---|
-| **DAO** | `app/daos/` | Each model has a dedicated DAO isolating database queries from business logic. |
-| **Service Layer** | `app/services/` | Services encapsulate business rules and orchestrate DAO calls; routers stay thin. |
-| **Pub-Sub** | `app/services/notification_service.py` | `InMemoryPubSub` broadcasts auction-end notifications to all bidders. |
-| **Strategy** | `app/services/shipping_strategy.py` | Interchangeable `StandardShipping` / `ExpeditedShipping` algorithms behind a common interface, selected at runtime by the payment service. |
+- **DAO** (`app/daos/`) - Each model has a dedicated DAO isolating database queries from business logic.
+- **Service Layer** (`app/services/`) - Services encapsulate business rules and orchestrate DAO calls; routers stay thin.
+- **Pub-Sub** (`app/services/notification_service.py`) - `InMemoryPubSub` broadcasts auction-end notifications to all bidders.
+- **Strategy** (`app/services/shipping_strategy.py`) - Interchangeable `StandardShipping` / `ExpeditedShipping` algorithms behind a common interface, selected at runtime by the payment service.
 
 ## HATEOAS
 
