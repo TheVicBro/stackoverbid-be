@@ -17,7 +17,7 @@ def create_order(
     amount_paid: float,
     shipping_address: str,
     expedited_shipping: bool,
-    shipping_time_days: int = 5,
+    shipping_time_days: int,
 ) -> models.Order:
     order = models.Order(
         item_id=item_id,
