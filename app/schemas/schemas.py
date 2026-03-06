@@ -1,5 +1,3 @@
-import re
-from calendar import monthrange
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -172,20 +170,6 @@ class Bid(BaseModel):
         from_attributes = True
 
 
-def _luhn_check(card_number: str) -> bool:
-    digits = [int(d) for d in card_number if d.isdigit()]
-    if len(digits) < 13:
-        return False
-    total = 0
-    for i, d in enumerate(reversed(digits)):
-        if i % 2 == 1:
-            d *= 2
-            if d > 9:
-                d -= 9
-        total += d
-    return total % 10 == 0
-
-
 class PaymentRequest(BaseModel):
     credit_card_number: str
     name_on_card: str
@@ -198,13 +182,11 @@ class PaymentRequest(BaseModel):
     @classmethod
     def validate_card_number(cls, v: str) -> str:
         cleaned = v.strip()
-        if not re.match(r'^[\d\s\-]+$', cleaned):
+        digits = cleaned.replace(" ", "").replace("-", "")
+        if not digits.isdigit():
             raise ValueError("Card number must contain only digits, spaces, or hyphens.")
-        digits = re.sub(r'[\s\-]', '', cleaned)
         if len(digits) < 13 or len(digits) > 19:
             raise ValueError("Card number must be 13 to 19 digits.")
-        if not _luhn_check(digits):
-            raise ValueError("Invalid card number.")
         return digits
 
     @field_validator("expiration_date")
@@ -227,16 +209,9 @@ class PaymentRequest(BaseModel):
             raise ValueError("Expiration must be MM/YY or MM-YY.")
         if month < 1 or month > 12:
             raise ValueError("Month must be 01-12.")
-        if year < 0 or year > 99:
-            raise ValueError("Year must be 00-99.")
-        # Interpret YY as 20YY for 00-99
-        full_year = 2000 + year if year < 100 else year
+        full_year = 2000 + year
         now = datetime.now(timezone.utc)
-        expiry = now.replace(year=full_year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0)
-        # Card valid through end of last day of expiry month
-        last_day = monthrange(full_year, month)[1]
-        end_of_month = expiry.replace(day=last_day, hour=23, minute=59, second=59, microsecond=999999)
-        if end_of_month < now:
+        if full_year < now.year or (full_year == now.year and month < now.month):
             raise ValueError("Card has expired.")
         return v
 

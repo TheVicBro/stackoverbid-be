@@ -1,4 +1,4 @@
-from typing import Awaitable, Callable, Dict, List, Optional, Set
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from jose import JWTError
@@ -17,18 +17,14 @@ router = APIRouter(
 )
 
 
-Subscriber = Callable[[dict], Awaitable[None]]
-
-
 class InMemoryPubSub:
-    def __init__(self) -> None:
-        # topic -> set of async callbacks
-        self._subscribers: Dict[str, Set[Subscriber]] = {}
+    def __init__(self):
+        self._subscribers = {}
 
-    def subscribe(self, topic: str, callback: Subscriber) -> None:
+    def subscribe(self, topic, callback):
         self._subscribers.setdefault(topic, set()).add(callback)
 
-    def unsubscribe(self, topic: str, callback: Subscriber) -> None:
+    def unsubscribe(self, topic, callback):
         callbacks = self._subscribers.get(topic)
         if not callbacks:
             return
@@ -36,13 +32,12 @@ class InMemoryPubSub:
         if not callbacks:
             self._subscribers.pop(topic, None)
 
-    async def publish(self, topic: str, message: dict) -> None:
+    async def publish(self, topic, message):
         callbacks = list(self._subscribers.get(topic, set()))
         for callback in callbacks:
             try:
                 await callback(message)
             except WebSocketDisconnect:
-                # Disconnection is handled by the websocket endpoint loop
                 continue
 
 

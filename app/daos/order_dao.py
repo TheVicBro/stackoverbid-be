@@ -28,6 +28,6 @@ def create_order(
         shipping_time_days=shipping_time_days,
     )
     db.add(order)
-    db.flush()  # caller (service layer) owns the transaction commit
+    db.flush()
     return order
 

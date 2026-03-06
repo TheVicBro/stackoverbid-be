@@ -14,7 +14,7 @@ def create_bid(db: Session, item_id: int, user_id: int, bid_in: schemas.BidCreat
         amount=bid_in.amount,
     )
     db.add(bid)
-    db.flush()  # caller (service layer) owns the transaction commit
+    db.flush()
     return bid
 
 def get_highest_bid(db: Session, item_id: int) -> Optional[float]:

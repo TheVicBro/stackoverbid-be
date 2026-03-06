@@ -36,11 +36,11 @@ def process_payment(
             detail="User not found.",
         )
 
-    shipping_address = (
-        payment.shipping_address.strip()
-        if payment.shipping_address and payment.shipping_address.strip()
-        else user.address
-    )
+    shipping_address = payment.shipping_address
+    if shipping_address:
+        shipping_address = shipping_address.strip()
+    if not shipping_address:
+        shipping_address = user.address
     if not shipping_address:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

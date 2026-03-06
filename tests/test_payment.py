@@ -93,7 +93,7 @@ class TestPaymentValidation:
 
     def test_invalid_card_number(self, client, create_user):
         _, token = create_user()
-        payment = {**VALID_PAYMENT, "credit_card_number": "1234567890123"}
+        payment = {**VALID_PAYMENT, "credit_card_number": "123456"}
         resp = client.post("/payment/items/1/pay", json=payment, headers=auth_header(token))
         assert resp.status_code == 422
 

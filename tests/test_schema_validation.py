@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 
 class TestPaymentSchemaEdgeCases:
-    def test_luhn_valid_visa(self):
+    def test_valid_card_number(self):
         PaymentRequest(
             credit_card_number="4111111111111111",
             name_on_card="Test",
@@ -14,7 +14,7 @@ class TestPaymentSchemaEdgeCases:
             security_code="123",
         )
 
-    def test_luhn_valid_with_spaces(self):
+    def test_valid_card_with_spaces(self):
         req = PaymentRequest(
             credit_card_number="4111 1111 1111 1111",
             name_on_card="Test",
@@ -24,7 +24,7 @@ class TestPaymentSchemaEdgeCases:
         # Validator strips spaces
         assert req.credit_card_number == "4111111111111111"
 
-    def test_luhn_valid_with_hyphens(self):
+    def test_valid_card_with_hyphens(self):
         req = PaymentRequest(
             credit_card_number="4111-1111-1111-1111",
             name_on_card="Test",
@@ -33,10 +33,10 @@ class TestPaymentSchemaEdgeCases:
         )
         assert req.credit_card_number == "4111111111111111"
 
-    def test_luhn_invalid(self):
+    def test_card_too_short(self):
         with pytest.raises(ValidationError):
             PaymentRequest(
-                credit_card_number="1234567890123",
+                credit_card_number="123456",
                 name_on_card="Test",
                 expiration_date="12/30",
                 security_code="123",

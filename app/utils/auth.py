@@ -14,16 +14,16 @@ from app.models import models
 
 ALGORITHM = "HS256"
 SECRET_KEY = os.getenv("SECRET_KEY", "examplekey")  # Set SECRET_KEY in .env for production
-ctx = CryptContext(schemes=["bcrypt_sha256"])
+pwd_context = CryptContext(schemes=["bcrypt"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
 def hash_password(password: str) -> str:
-    return ctx.hash(password)
+    return pwd_context.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return ctx.verify(plain_password, hashed_password)
+    return pwd_context.verify(plain_password, hashed_password)
 
 
 def access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:

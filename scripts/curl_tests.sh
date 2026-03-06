@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
-# StackOverbid API curl test script
-#
-# Requires:
-#   1. Server running:  uvicorn app.main:app --reload
-#   2. Fresh database:  delete stackoverbid.db before running
-#
+# curl test script for StackOverbid API
+# Make sure the server is running and the DB is fresh before running this.
 # Usage: bash scripts/curl_tests.sh
 
 BASE_URL="http://localhost:8000"
@@ -14,13 +10,8 @@ json_val() {
   echo "$1" | grep -o "\"$2\":[^,}]*" | head -1 | sed "s/\"$2\"://;s/\"//g"
 }
 
-echo ""
-echo "=============================="
-echo " PART 1: Main Use-Case Flow"
-echo "=============================="
-
-echo ""
-echo "--- UC1: Sign Up (seller + 2 bidders) ---"
+# Sign up a seller and two bidders
+echo "Signing up users"
 
 curl -sS -X POST "$BASE_URL/auth/signup" \
   -H "Content-Type: application/json" \
@@ -37,8 +28,8 @@ curl -sS -X POST "$BASE_URL/auth/signup" \
   -d '{"username":"bidder2","password":"password123","first_name":"Carol","last_name":"Lee","address":"789 Pine Rd"}'
 echo ""
 
-echo ""
-echo "--- UC1.5: Login ---"
+# Log in all three users
+echo "Logging in"
 
 RESP=$(curl -sS -X POST "$BASE_URL/auth/login" \
   -H "Content-Type: application/json" \
@@ -58,8 +49,8 @@ RESP=$(curl -sS -X POST "$BASE_URL/auth/login" \
 echo "$RESP"
 BIDDER2_TOKEN=$(json_val "$RESP" access_token)
 
-echo ""
-echo "--- UC7: Seller Creates Auction Item ---"
+# Seller creates an auction item (expires in 5 seconds so we can test closing it)
+echo "Creating auction item"
 
 END_TIME=$(date -u -d "+5 seconds" +"%Y-%m-%dT%H:%M:%SZ")
 
@@ -79,40 +70,34 @@ RESP=$(curl -sS -X POST "$BASE_URL/auction/items" \
 echo "$RESP"
 EDIT_ITEM_ID=$(json_val "$RESP" id)
 
-
-echo ""
-echo "--- UC8: Seller Edits Item ---"
-
+# Edit item
+echo "Editing item"
 curl -sS -X PATCH "$BASE_URL/auction/items/$EDIT_ITEM_ID" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $SELLER_TOKEN" \
   -d '{"title":"Antique Lamp","description":"A beautifully restored antique lamp"}'
 echo ""
 
-echo ""
-echo "--- UC2: Browse Catalogue ---"
-
+# Browse catalogue
+echo "Browsing catalogue"
 curl -sS -X GET "$BASE_URL/catalogue/items" \
   -H "Authorization: Bearer $BIDDER1_TOKEN"
 echo ""
 
-echo ""
-echo "--- UC2: Search by keyword ---"
-
+# Search by keyword
+echo "Searching for 'Guitar'"
 curl -sS -X GET "$BASE_URL/catalogue/items?keyword=Guitar" \
   -H "Authorization: Bearer $BIDDER1_TOKEN"
 echo ""
 
-echo ""
-echo "--- UC2.3: View Item Details ---"
-
+# View item details
+echo "Viewing item details"
 curl -sS -X GET "$BASE_URL/catalogue/items/$ITEM_ID" \
   -H "Authorization: Bearer $BIDDER1_TOKEN"
 echo ""
 
-
-echo ""
-echo "--- UC3: Place Bids (competitive bidding) ---"
+# Place bids
+echo "Placing bids"
 
 curl -sS -X POST "$BASE_URL/auction/items/$ITEM_ID/bid" \
   -H "Content-Type: application/json" \
@@ -132,36 +117,28 @@ curl -sS -X POST "$BASE_URL/auction/items/$ITEM_ID/bid" \
   -d '{"amount":750}'
 echo ""
 
-
-echo ""
-echo "--- Waiting for auction to expire (6s)... ---"
+# Wait for auction to expire then broadcast end
+echo "Waiting for auction to expire (6s)"
 sleep 6
 
-echo "--- Seller Broadcasts Auction End ---"
-
+echo "Broadcasting auction end"
 curl -sS -X POST "$BASE_URL/notifications/items/$ITEM_ID/broadcast-end" \
   -H "Authorization: Bearer $SELLER_TOKEN"
 echo ""
 
-
-echo ""
-echo "--- Notifications (winner) ---"
-
+# Check notifications for winner and loser
+echo "Checking winner notifications"
 curl -sS -X GET "$BASE_URL/notifications/" \
   -H "Authorization: Bearer $BIDDER1_TOKEN"
 echo ""
 
-echo ""
-echo "--- Notifications (loser) ---"
-
+echo "Checking loser notifications"
 curl -sS -X GET "$BASE_URL/notifications/" \
   -H "Authorization: Bearer $BIDDER2_TOKEN"
 echo ""
 
-
-echo ""
-echo "--- UC4/UC5: Winner Pays ---"
-
+# Winner pays
+echo "Winner paying for item"
 RESP=$(curl -sS -X POST "$BASE_URL/payment/items/$ITEM_ID/pay" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $BIDDER1_TOKEN" \
@@ -169,151 +146,133 @@ RESP=$(curl -sS -X POST "$BASE_URL/payment/items/$ITEM_ID/pay" \
 echo "$RESP"
 ORDER_ID=$(json_val "$RESP" order_id)
 
-
-echo ""
-echo "--- UC6: View Receipt ---"
-
+# View receipt
+echo "Viewing receipt"
 curl -sS -X GET "$BASE_URL/payment/orders/$ORDER_ID/receipt" \
   -H "Authorization: Bearer $BIDDER1_TOKEN"
 echo ""
 
 
-echo ""
-echo "=============================="
-echo " PART 2: Robustness Tests"
-echo "=============================="
+# Error/edge case tests
 
-
-echo ""
-echo "--- Duplicate username (expect 400) ---"
+echo "Testing duplicate username (expect 400)"
 curl -sS -X POST "$BASE_URL/auth/signup" \
   -H "Content-Type: application/json" \
   -d '{"username":"seller1","password":"password123","first_name":"Dup","last_name":"User","address":"X"}'
 echo ""
 
-echo "--- Short username (expect 422) ---"
+echo "Testing short username (expect 422)"
 curl -sS -X POST "$BASE_URL/auth/signup" \
   -H "Content-Type: application/json" \
   -d '{"username":"ab","password":"password123","first_name":"A","last_name":"B","address":"X"}'
 echo ""
 
-echo "--- Short password (expect 422) ---"
+echo "Testing short password (expect 422)"
 curl -sS -X POST "$BASE_URL/auth/signup" \
   -H "Content-Type: application/json" \
   -d '{"username":"newuser99","password":"short","first_name":"A","last_name":"B","address":"X"}'
 echo ""
 
-echo "--- Wrong password (expect 400) ---"
+echo "Testing wrong password (expect 400)"
 curl -sS -X POST "$BASE_URL/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"username":"seller1","password":"wrongpassword"}'
 echo ""
 
-echo "--- No auth token (expect 401) ---"
+echo "Testing no auth token (expect 401)"
 curl -sS -X GET "$BASE_URL/catalogue/items"
 echo ""
 
-echo "--- Invalid JWT (expect 401) ---"
+echo "Testing invalid JWT (expect 401)"
 curl -sS -X GET "$BASE_URL/catalogue/items/1" \
   -H "Authorization: Bearer invalidtoken123"
 echo ""
 
-
-echo ""
-echo "--- Empty title (expect 422) ---"
+echo "Testing empty title (expect 422)"
 curl -sS -X POST "$BASE_URL/auction/items" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $SELLER_TOKEN" \
   -d "{\"title\":\"   \",\"description\":\"Something\",\"starting_price\":10,\"end_time\":\"$(date -u -d '+1 hour' +'%Y-%m-%dT%H:%M:%SZ')\"}"
 echo ""
 
-echo "--- Negative price (expect 422) ---"
+echo "Testing negative price (expect 422)"
 curl -sS -X POST "$BASE_URL/auction/items" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $SELLER_TOKEN" \
   -d "{\"title\":\"Bad\",\"description\":\"Negative\",\"starting_price\":-5,\"end_time\":\"$(date -u -d '+1 hour' +'%Y-%m-%dT%H:%M:%SZ')\"}"
 echo ""
 
-echo "--- Past end_time (expect 422) ---"
+echo "Testing past end_time (expect 422)"
 curl -sS -X POST "$BASE_URL/auction/items" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $SELLER_TOKEN" \
   -d "{\"title\":\"Bad\",\"description\":\"Past\",\"starting_price\":10,\"end_time\":\"$(date -u -d '-1 hour' +'%Y-%m-%dT%H:%M:%SZ')\"}"
 echo ""
 
-
-echo ""
-echo "--- Bid on closed auction (expect 400) ---"
+echo "Testing bid on closed auction (expect 400)"
 curl -sS -X POST "$BASE_URL/auction/items/$ITEM_ID/bid" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $BIDDER2_TOKEN" \
   -d '{"amount":1000}'
 echo ""
 
-echo "--- Bid below starting price (expect 400) ---"
+echo "Testing bid below starting price (expect 400)"
 curl -sS -X POST "$BASE_URL/auction/items/$EDIT_ITEM_ID/bid" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $BIDDER1_TOKEN" \
   -d '{"amount":5}'
 echo ""
 
-echo "--- Seller bids on own item (expect 403) ---"
+echo "Testing seller bids on own item (expect 403)"
 curl -sS -X POST "$BASE_URL/auction/items/$EDIT_ITEM_ID/bid" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $SELLER_TOKEN" \
   -d '{"amount":100}'
 echo ""
 
-
-echo ""
-echo "--- Non-winner tries to pay (expect 400) ---"
+echo "Testing non-winner tries to pay (expect 400)"
 curl -sS -X POST "$BASE_URL/payment/items/$ITEM_ID/pay" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $BIDDER2_TOKEN" \
   -d '{"credit_card_number":"4111111111111111","name_on_card":"Carol Lee","expiration_date":"12/30","security_code":"123"}'
 echo ""
 
-echo "--- Double payment (expect 400) ---"
+echo "Testing double payment (expect 400)"
 curl -sS -X POST "$BASE_URL/payment/items/$ITEM_ID/pay" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $BIDDER1_TOKEN" \
   -d '{"credit_card_number":"4111111111111111","name_on_card":"Bob Jones","expiration_date":"12/30","security_code":"123"}'
 echo ""
 
-echo "--- Invalid card number / Luhn (expect 422) ---"
+echo "Testing card number too short (expect 422)"
 curl -sS -X POST "$BASE_URL/payment/items/$ITEM_ID/pay" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $BIDDER1_TOKEN" \
-  -d '{"credit_card_number":"1234567890123456","name_on_card":"Bob Jones","expiration_date":"12/30","security_code":"123"}'
+  -d '{"credit_card_number":"123456","name_on_card":"Bob Jones","expiration_date":"12/30","security_code":"123"}'
 echo ""
 
-echo "--- Expired card (expect 422) ---"
+echo "Testing expired card (expect 422)"
 curl -sS -X POST "$BASE_URL/payment/items/$ITEM_ID/pay" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $BIDDER1_TOKEN" \
   -d '{"credit_card_number":"4111111111111111","name_on_card":"Bob Jones","expiration_date":"01/20","security_code":"123"}'
 echo ""
 
-echo "--- CVV with letters (expect 422) ---"
+echo "Testing CVV with letters (expect 422)"
 curl -sS -X POST "$BASE_URL/payment/items/$ITEM_ID/pay" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $BIDDER1_TOKEN" \
   -d '{"credit_card_number":"4111111111111111","name_on_card":"Bob Jones","expiration_date":"12/30","security_code":"12A"}'
 echo ""
 
-
-echo ""
-echo "--- Other user views receipt (expect 403) ---"
+echo "Testing other user views receipt (expect 403)"
 curl -sS -X GET "$BASE_URL/payment/orders/$ORDER_ID/receipt" \
   -H "Authorization: Bearer $BIDDER2_TOKEN"
 echo ""
 
-echo "--- Nonexistent order (expect 404) ---"
+echo "Testing nonexistent order (expect 404)"
 curl -sS -X GET "$BASE_URL/payment/orders/99999/receipt" \
   -H "Authorization: Bearer $BIDDER1_TOKEN"
 echo ""
 
-echo ""
-echo "=============================="
-echo " Done."
-echo "=============================="
+echo "All tests done"

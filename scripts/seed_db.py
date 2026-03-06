@@ -70,7 +70,7 @@ def seed(db: Session) -> None:
     alice_id, bob_id, carol_id = users[0].id, users[1].id, users[2].id
 
     # Items (some active, one closed for payment demo)
-    now = datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC to match model convention
+    now = datetime.utcnow()
     items = [
         models.Item(
             title="Vintage Camera",

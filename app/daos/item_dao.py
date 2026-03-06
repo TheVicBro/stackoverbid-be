@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -29,20 +29,17 @@ def get_item(db: Session, item_id: int) -> Optional[models.Item]:
 
 
 def update_item(db: Session, item: models.Item, update_in: schemas.ItemUpdate) -> models.Item:
-    update_data = {
-        field: value
-        for field, value in update_in.model_dump(exclude_unset=True).items()
-        if value is not None
-    }
-    for field, value in update_data.items():
-        setattr(item, field, value)
+    if update_in.title is not None:
+        item.title = update_in.title
+    if update_in.description is not None:
+        item.description = update_in.description
     db.commit()
     db.refresh(item)
     return item
 
 
 def list_active_items(db: Session, keyword: Optional[str] = None) -> List[models.Item]:
-    now = datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC to match SQLite storage
+    now = datetime.utcnow()
     query = (
         db.query(models.Item)
         .filter(models.Item.status == "active")
