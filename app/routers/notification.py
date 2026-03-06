@@ -1,11 +1,13 @@
-from typing import Awaitable, Callable, Dict, List, Optional, Set
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from jose import JWTError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.events import AuctionClosedEvent, AuctionClosedNotificationPayload, auction_closed_subject
 from app.models import models
+from app.pubsub import pubsub
 from app.schemas import schemas
 from app.services import notification_service
 from app.utils.auth import get_current_user, get_user_from_token
@@ -15,38 +17,6 @@ router = APIRouter(
     prefix="/notifications",
     tags=["notifications"],
 )
-
-
-Subscriber = Callable[[dict], Awaitable[None]]
-
-
-class InMemoryPubSub:
-    def __init__(self) -> None:
-        # topic -> set of async callbacks
-        self._subscribers: Dict[str, Set[Subscriber]] = {}
-
-    def subscribe(self, topic: str, callback: Subscriber) -> None:
-        self._subscribers.setdefault(topic, set()).add(callback)
-
-    def unsubscribe(self, topic: str, callback: Subscriber) -> None:
-        callbacks = self._subscribers.get(topic)
-        if not callbacks:
-            return
-        callbacks.discard(callback)
-        if not callbacks:
-            self._subscribers.pop(topic, None)
-
-    async def publish(self, topic: str, message: dict) -> None:
-        callbacks = list(self._subscribers.get(topic, set()))
-        for callback in callbacks:
-            try:
-                await callback(message)
-            except WebSocketDisconnect:
-                # Disconnection is handled by the websocket endpoint loop
-                continue
-
-
-pubsub = InMemoryPubSub()
 
 
 @router.websocket("/ws/{user_id}")
@@ -117,17 +87,21 @@ async def broadcast_auction_end(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the seller can close their auction.")
     notifications_to_send = notification_service.close_auction_and_create_notifications(db, item_id)
 
-    for notification in notifications_to_send:
-        payload = {
-            "notification_id": notification.id,
-            "item_id": notification.item_id,
-            "message": notification.message,
-            "is_highest_bidder": notification.is_highest_bidder,
-            "highest_bid_amount": notification.highest_bid_amount,
-            "can_proceed_to_payment": notification.is_highest_bidder,
-            "payment_url": f"/payment/items/{notification.item_id}/pay" if notification.is_highest_bidder else None,
-        }
-        await pubsub.publish(f"user:{notification.user_id}", payload)
+    # Observer pattern: notify observers (e.g. BroadcastToWebSocketObserver pushes via pub-sub)
+    event = AuctionClosedEvent(
+        notifications=[
+            AuctionClosedNotificationPayload(
+                notification_id=n.id,
+                user_id=n.user_id,
+                item_id=n.item_id,
+                message=n.message,
+                is_highest_bidder=n.is_highest_bidder,
+                highest_bid_amount=n.highest_bid_amount,
+            )
+            for n in notifications_to_send
+        ]
+    )
+    await auction_closed_subject.notify(event)
 
     return {"message": "Notifications broadcast to all bidders"}
 

@@ -1,16 +1,22 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.daos import item_dao, order_dao, user_dao
+from app.daos import order_dao, user_dao
 from app.models import models
+from app.repositories.item_repository import ItemRepository
 from app.schemas import schemas
+from app.strategies.shipping import ExpeditedShippingStrategy, StandardShippingStrategy, ShippingCostStrategy
 
 
 def process_payment(
-    db: Session, item_id: int, user_id: int, payment: schemas.PaymentRequest
+    db: Session,
+    item_id: int,
+    user_id: int,
+    payment: schemas.PaymentRequest,
+    item_repo: ItemRepository,
 ) -> models.Order:
     """Process payment for a closed auction item. Only the winning bidder can pay."""
-    item = item_dao.get_item(db, item_id)
+    item = item_repo.get_item(item_id)
     if not item:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -47,9 +53,11 @@ def process_payment(
             detail="Shipping address is required (provide it in the request or in your profile).",
         )
 
-    amount_paid = item.current_price
-    if payment.expedited_shipping:
-        amount_paid += item.expedited_shipping_cost
+    # Strategy: select shipping cost algorithm (standard vs expedited)
+    shipping_strategy: ShippingCostStrategy = (
+        ExpeditedShippingStrategy() if payment.expedited_shipping else StandardShippingStrategy()
+    )
+    amount_paid = item.current_price + shipping_strategy.get_shipping_cost(item)
 
     order = order_dao.create_order(
         db,
