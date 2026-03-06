@@ -12,7 +12,7 @@ class TestPaymentSuccess:
     """UC5 – winning bidder pays for the item."""
 
     def _close_auction(self, client, db, create_user, create_item, create_bid):
-        """Helper: create seller + buyer, make item, bid, close auction. Returns (item, buyer_token)."""
+        """Helper: create seller + buyer, make item, bid, close auction. Returns (item, buyer_token, seller_token)."""
         seller, seller_token = create_user(username="seller", password="password123")
         buyer, buyer_token = create_user(username="buyer", password="password123")
         past = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)

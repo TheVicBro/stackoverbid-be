@@ -10,7 +10,11 @@ class TestReceipt:
     """UC6 – Buyer receives a receipt after payment."""
 
     def _setup_and_pay(self, client, db, create_user, create_item, create_bid, expedited=False):
-        """Create users, item, bid, close auction, pay. Returns the receipt response."""
+        """Create users, item, bid, close auction, pay.
+
+        Returns:
+            tuple: (payment response, buyer auth token).
+        """
         seller, seller_token = create_user(username="seller", password="password123")
         buyer, buyer_token = create_user(username="buyer", password="password123")
         past = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)

@@ -2,9 +2,12 @@
 Shared pytest fixtures for the StackOverbid test suite.
 
 Uses an in-memory SQLite database so tests are isolated and fast.
-Each test function gets its own database session that is rolled back after the test.
+Before each test all tables are created and after each test they are dropped,
+and each test function gets its own database session that is closed when the
+test finishes.
 """
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import pytest
 from fastapi.testclient import TestClient
@@ -104,12 +107,12 @@ def create_item(db):
         title: str = "Test Item",
         description: str = "Test description",
         starting_price: float = 10.0,
-        current_price: float | None = None,
+        current_price: Optional[float] = None,
         status: str = "active",
-        end_time: datetime | None = None,
+        end_time: Optional[datetime] = None,
         shipping_time_days: int = 5,
         expedited_shipping_cost: float = 15.0,
-        highest_bidder_id: int | None = None,
+        highest_bidder_id: Optional[int] = None,
     ):
         if end_time is None:
             end_time = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=2)
