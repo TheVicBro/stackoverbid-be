@@ -79,15 +79,23 @@ pytest tests/ --tb=short
 
 Tests cover authentication, catalogue, bidding, auction lifecycle, payment, receipts, notifications, schema validation, and HATEOAS links. Tests use an in-memory SQLite database and are fully isolated.
 
-### Curl script
+### Curl scripts
 
-A bash script exercises the full API flow (happy path + robustness checks):
+Two bash scripts exercise the API:
+
+**Main flow** — walks through the complete auction lifecycle (UC1–UC8):
 
 ```bash
-bash scripts/curl_tests.sh
+bash scripts/curl_main_flow.sh
 ```
 
-> **Prerequisites:** the server must be running and the database must be fresh (delete `stackoverbid.db` before running).
+**Robustness tests** — wrong inputs, authorization failures, business rule violations:
+
+```bash
+bash scripts/curl_robustness_tests.sh
+```
+
+> **Prerequisites:** the server must be running and the database must be fresh (delete `stackoverbid.db` before running). Run `curl_main_flow.sh` first, then `curl_robustness_tests.sh`.
 
 ## Project Structure
 

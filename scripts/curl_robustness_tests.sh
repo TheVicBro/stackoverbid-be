@@ -1,159 +1,51 @@
 #!/usr/bin/env bash
-# curl test script for StackOverbid API
-# Make sure the server is running and the DB is fresh before running this.
-# Usage: bash scripts/curl_tests.sh
+# Robustness / edge case tests for StackOverbid API
+# Tests wrong inputs, authorization failures, and business rule violations.
+#
+# Run curl_main_flow.sh first because this script reuses the data it created.
+# Usage: bash scripts/curl_robustness_tests.sh
 
 BASE_URL="http://localhost:8000"
 
-# Helper: extract a JSON value by key (handles both "key":"str" and "key":num)
+# helper to pull a value out of a JSON response
 json_val() {
   echo "$1" | grep -o "\"$2\":[^,}]*" | head -1 | sed "s/\"$2\"://;s/\"//g"
 }
 
-# Sign up a seller and two bidders
-echo "Signing up users"
-
-curl -sS -X POST "$BASE_URL/auth/signup" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"seller1","password":"password123","first_name":"Alice","last_name":"Smith","address":"123 Main St"}'
-echo ""
-
-curl -sS -X POST "$BASE_URL/auth/signup" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"bidder1","password":"password123","first_name":"Bob","last_name":"Jones","address":"456 Oak Ave"}'
-echo ""
-
-curl -sS -X POST "$BASE_URL/auth/signup" \
-  -H "Content-Type: application/json" \
-  -d '{"username":"bidder2","password":"password123","first_name":"Carol","last_name":"Lee","address":"789 Pine Rd"}'
-echo ""
-
-# Log in all three users
-echo "Logging in"
-
+# log in to get tokens (users were created by the main flow script)
 RESP=$(curl -sS -X POST "$BASE_URL/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"username":"seller1","password":"password123"}')
-echo "$RESP"
 SELLER_TOKEN=$(json_val "$RESP" access_token)
 
 RESP=$(curl -sS -X POST "$BASE_URL/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"username":"bidder1","password":"password123"}')
-echo "$RESP"
 BIDDER1_TOKEN=$(json_val "$RESP" access_token)
 
 RESP=$(curl -sS -X POST "$BASE_URL/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"username":"bidder2","password":"password123"}')
-echo "$RESP"
 BIDDER2_TOKEN=$(json_val "$RESP" access_token)
 
-# Seller creates an auction item (expires in 5 seconds so we can test closing it)
-echo "Creating auction item"
-
-END_TIME=$(date -u -d "+5 seconds" +"%Y-%m-%dT%H:%M:%SZ")
-
-RESP=$(curl -sS -X POST "$BASE_URL/auction/items" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $SELLER_TOKEN" \
-  -d "{\"title\":\"Vintage Guitar\",\"description\":\"1965 Fender Stratocaster\",\"starting_price\":500,\"end_time\":\"$END_TIME\",\"shipping_time_days\":7,\"expedited_shipping_cost\":25}")
-echo "$RESP"
-ITEM_ID=$(json_val "$RESP" id)
-
-# Create a second item for edit/bid-guard tests (expires in 1 hour)
+# create a fresh item for bid-guard tests
 LONG_END=$(date -u -d "+1 hour" +"%Y-%m-%dT%H:%M:%SZ")
 RESP=$(curl -sS -X POST "$BASE_URL/auction/items" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $SELLER_TOKEN" \
-  -d "{\"title\":\"Old Lamp\",\"description\":\"A dusty lamp\",\"starting_price\":10,\"end_time\":\"$LONG_END\"}")
-echo "$RESP"
+  -d "{\"title\":\"Test Lamp\",\"description\":\"For robustness tests\",\"starting_price\":10,\"end_time\":\"$LONG_END\"}")
 EDIT_ITEM_ID=$(json_val "$RESP" id)
 
-# Edit item
-echo "Editing item"
-curl -sS -X PATCH "$BASE_URL/auction/items/$EDIT_ITEM_ID" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $SELLER_TOKEN" \
-  -d '{"title":"Antique Lamp","description":"A beautifully restored antique lamp"}'
-echo ""
+# item 1 from main flow is already closed/paid
+ITEM_ID=1
 
-# Browse catalogue
-echo "Browsing catalogue"
-curl -sS -X GET "$BASE_URL/catalogue/items" \
-  -H "Authorization: Bearer $BIDDER1_TOKEN"
-echo ""
-
-# Search by keyword
-echo "Searching for 'Guitar'"
-curl -sS -X GET "$BASE_URL/catalogue/items?keyword=Guitar" \
-  -H "Authorization: Bearer $BIDDER1_TOKEN"
-echo ""
-
-# View item details
-echo "Viewing item details"
-curl -sS -X GET "$BASE_URL/catalogue/items/$ITEM_ID" \
-  -H "Authorization: Bearer $BIDDER1_TOKEN"
-echo ""
-
-# Place bids
-echo "Placing bids"
-
-curl -sS -X POST "$BASE_URL/auction/items/$ITEM_ID/bid" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $BIDDER1_TOKEN" \
-  -d '{"amount":550}'
-echo ""
-
-curl -sS -X POST "$BASE_URL/auction/items/$ITEM_ID/bid" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $BIDDER2_TOKEN" \
-  -d '{"amount":600}'
-echo ""
-
-curl -sS -X POST "$BASE_URL/auction/items/$ITEM_ID/bid" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $BIDDER1_TOKEN" \
-  -d '{"amount":750}'
-echo ""
-
-# Wait for auction to expire then broadcast end
-echo "Waiting for auction to expire (6s)"
-sleep 6
-
-echo "Broadcasting auction end"
-curl -sS -X POST "$BASE_URL/notifications/items/$ITEM_ID/broadcast-end" \
-  -H "Authorization: Bearer $SELLER_TOKEN"
-echo ""
-
-# Check notifications for winner and loser
-echo "Checking winner notifications"
-curl -sS -X GET "$BASE_URL/notifications/" \
-  -H "Authorization: Bearer $BIDDER1_TOKEN"
-echo ""
-
-echo "Checking loser notifications"
-curl -sS -X GET "$BASE_URL/notifications/" \
-  -H "Authorization: Bearer $BIDDER2_TOKEN"
-echo ""
-
-# Winner pays
-echo "Winner paying for item"
-RESP=$(curl -sS -X POST "$BASE_URL/payment/items/$ITEM_ID/pay" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $BIDDER1_TOKEN" \
-  -d '{"credit_card_number":"4111111111111111","name_on_card":"Bob Jones","expiration_date":"12/30","security_code":"123","expedited_shipping":false}')
-echo "$RESP"
+# grab the order id from main flow
+RESP=$(curl -sS -X GET "$BASE_URL/payment/orders/1/receipt" \
+  -H "Authorization: Bearer $BIDDER1_TOKEN")
 ORDER_ID=$(json_val "$RESP" order_id)
 
-# View receipt
-echo "Viewing receipt"
-curl -sS -X GET "$BASE_URL/payment/orders/$ORDER_ID/receipt" \
-  -H "Authorization: Bearer $BIDDER1_TOKEN"
-echo ""
 
-
-# Error/edge case tests
+# Auth errors
 
 echo "Testing duplicate username (expect 400)"
 curl -sS -X POST "$BASE_URL/auth/signup" \
@@ -188,6 +80,9 @@ curl -sS -X GET "$BASE_URL/catalogue/items/1" \
   -H "Authorization: Bearer invalidtoken123"
 echo ""
 
+
+# Item creation errors
+
 echo "Testing empty title (expect 422)"
 curl -sS -X POST "$BASE_URL/auction/items" \
   -H "Content-Type: application/json" \
@@ -208,6 +103,9 @@ curl -sS -X POST "$BASE_URL/auction/items" \
   -H "Authorization: Bearer $SELLER_TOKEN" \
   -d "{\"title\":\"Bad\",\"description\":\"Past\",\"starting_price\":10,\"end_time\":\"$(date -u -d '-1 hour' +'%Y-%m-%dT%H:%M:%SZ')\"}"
 echo ""
+
+
+# Bidding errors
 
 echo "Testing bid on closed auction (expect 400)"
 curl -sS -X POST "$BASE_URL/auction/items/$ITEM_ID/bid" \
@@ -230,7 +128,10 @@ curl -sS -X POST "$BASE_URL/auction/items/$EDIT_ITEM_ID/bid" \
   -d '{"amount":100}'
 echo ""
 
-echo "Testing non-winner tries to pay (expect 400)"
+
+# Payment errors
+
+echo "Testing non-winner tries to pay (expect 400/403)"
 curl -sS -X POST "$BASE_URL/payment/items/$ITEM_ID/pay" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $BIDDER2_TOKEN" \
@@ -265,6 +166,9 @@ curl -sS -X POST "$BASE_URL/payment/items/$ITEM_ID/pay" \
   -d '{"credit_card_number":"4111111111111111","name_on_card":"Bob Jones","expiration_date":"12/30","security_code":"12A"}'
 echo ""
 
+
+# Receipt errors
+
 echo "Testing other user views receipt (expect 403)"
 curl -sS -X GET "$BASE_URL/payment/orders/$ORDER_ID/receipt" \
   -H "Authorization: Bearer $BIDDER2_TOKEN"
@@ -275,4 +179,4 @@ curl -sS -X GET "$BASE_URL/payment/orders/99999/receipt" \
   -H "Authorization: Bearer $BIDDER1_TOKEN"
 echo ""
 
-echo "All tests done"
+echo "All robustness tests done"
