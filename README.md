@@ -127,7 +127,8 @@ app/
   utils/auth.py           - JWT utilities, password hashing
 scripts/
   seed_db.py              - Database seeder
-  curl_tests.sh           - Curl-based API test script
+  curl_main_flow.sh       - Curl script: full auction lifecycle (UC1-UC8)
+  curl_robustness_tests.sh - Curl script: edge cases and error handling
 tests/                    - pytest test cases
 ```
 
