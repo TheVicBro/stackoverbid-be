@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+
 from app.database import get_db
-from app.models import models
 from app.schemas import schemas
+from app.services import auth_service
 
 router = APIRouter(
     prefix="/auth",
@@ -11,20 +12,18 @@ router = APIRouter(
 
 @router.post("/signup", response_model=schemas.User)
 def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    # Skeleton: Just save the user directly (No password hashing for now)
-    db_user = models.User(
-        username=user.username,
-        hashed_password=user.password, # Storing plain text for skeleton
-        first_name=user.first_name,
-        last_name=user.last_name,
-        address=user.address
-    )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    result = auth_service.signup(db, user)
+    result.links = [
+        schemas.Link(rel="login", href="/auth/login", method="POST"),
+    ]
+    return result
 
-@router.post("/login")
-def login():
-    # Skeleton: Placeholder for login logic
-    return {"message": "Login endpoint skeleton"}
+@router.post("/login", response_model=schemas.Token)
+def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
+    result = auth_service.login(db, credentials)
+    result.links = [
+        schemas.Link(rel="catalogue", href="/catalogue/items", method="GET"),
+        schemas.Link(rel="create_item", href="/auction/items", method="POST"),
+        schemas.Link(rel="notifications", href="/notifications/", method="GET"),
+    ]
+    return result

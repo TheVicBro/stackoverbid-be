@@ -1,33 +1,61 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+
 from app.database import get_db
 from app.models import models
 from app.schemas import schemas
+from app.services import auction_service
+from app.utils.auth import get_current_user
+
 
 router = APIRouter(
     prefix="/auction",
-    tags=["auction"]
+    tags=["auction"],
 )
 
-@router.post("/items", response_model=schemas.Item)
-def create_item(item: schemas.ItemCreate, db: Session = Depends(get_db)):
-    # Skeleton: Create an item with a hardcoded seller_id for now
-    db_item = models.Item(
-        title=item.title,
-        description=item.description,
-        starting_price=item.starting_price,
-        current_price=item.starting_price,
-        end_time=item.end_time,
-        seller_id=1, # Hardcoded for skeleton
-        shipping_time_days=item.shipping_time_days,
-        expedited_shipping_cost=item.expedited_shipping_cost
-    )
-    db.add(db_item)
-    db.commit()
-    db.refresh(db_item)
-    return db_item
 
-@router.post("/items/{item_id}/bid")
-def place_bid(item_id: int, bid: schemas.BidCreate, db: Session = Depends(get_db)):
-    # Skeleton: Placeholder for bidding logic
-    return {"message": f"Bid of {bid.amount} placed on item {item_id}"}
+@router.post("/items", response_model=schemas.Item)
+def create_item(
+    item: schemas.ItemCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """List a new auction item."""
+    result = auction_service.create_item(db, item, seller_id=current_user.id)
+    result.links = [
+        schemas.Link(rel="self", href=f"/catalogue/items/{result.id}", method="GET"),
+        schemas.Link(rel="edit", href=f"/auction/items/{result.id}", method="PATCH"),
+        schemas.Link(rel="bid", href=f"/auction/items/{result.id}/bid", method="POST"),
+    ]
+    return result
+
+
+@router.patch("/items/{item_id}", response_model=schemas.Item)
+def edit_item(
+    item_id: int,
+    update: schemas.ItemUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Edit title/description of an item (blocked if bids exist)."""
+    result = auction_service.edit_item(db, item_id=item_id, seller_id=current_user.id, update_in=update)
+    result.links = [
+        schemas.Link(rel="self", href=f"/catalogue/items/{item_id}", method="GET"),
+        schemas.Link(rel="bid", href=f"/auction/items/{item_id}/bid", method="POST"),
+    ]
+    return result
+
+
+@router.post("/items/{item_id}/bid", response_model=schemas.Bid)
+def place_bid(
+    item_id: int,
+    bid: schemas.BidCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Place a bid on an item."""
+    result = auction_service.place_bid(db, item_id=item_id, user_id=current_user.id, bid_in=bid)
+    result.links = [
+        schemas.Link(rel="item", href=f"/catalogue/items/{item_id}", method="GET"),
+    ]
+    return result
