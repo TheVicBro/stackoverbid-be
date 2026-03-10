@@ -6,7 +6,7 @@ from jose import jwt, JWTError
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -15,7 +15,7 @@ from app.models import models
 ALGORITHM = "HS256"
 SECRET_KEY = os.getenv("SECRET_KEY", "examplekey")  # Set SECRET_KEY in .env for production
 pwd_context = CryptContext(schemes=["bcrypt"])
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+http_bearer = HTTPBearer()
 
 
 def hash_password(password: str) -> str:
@@ -54,7 +54,7 @@ def get_user_from_token(db: Session, token: str) -> models.User:
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    credentials: HTTPAuthorizationCredentials = Depends(http_bearer),
     db: Session = Depends(get_db),
 ) -> models.User:
-    return get_user_from_token(db, token)
+    return get_user_from_token(db, credentials.credentials)
