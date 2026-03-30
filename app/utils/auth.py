@@ -5,7 +5,7 @@ from passlib.context import CryptContext
 from jose import jwt, JWTError
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
@@ -54,7 +54,21 @@ def get_user_from_token(db: Session, token: str) -> models.User:
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(http_bearer),
+    request: Request,
     db: Session = Depends(get_db),
 ) -> models.User:
-    return get_user_from_token(db, credentials.credentials)
+    token = request.cookies.get("access_token")
+    if not token:
+        # Fallback to Authorization header for flexibility
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+            
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+    return get_user_from_token(db, token)
