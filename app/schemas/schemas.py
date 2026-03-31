@@ -19,7 +19,7 @@ class UserCreate(BaseModel):
     password: str
     first_name: str
     last_name: str
-    address: str
+    address: Optional[str] = ""
 
     @field_validator("first_name", "last_name")
     @classmethod
