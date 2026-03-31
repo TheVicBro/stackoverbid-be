@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -16,12 +16,14 @@ router = APIRouter(
 
 @router.get("/items", response_model=List[schemas.Item])
 def get_items(
+    response: Response,
     db: Session = Depends(get_db),
     keyword: Optional[str] = None,
     seller_id: Optional[int] = None,
     sort: Optional[str] = None,
 ):
     """Browse/search active auction items."""
+    response.headers["Cache-Control"] = "no-store, max-age=0"
     items = catalogue_service.list_active_items(db, keyword=keyword, seller_id=seller_id, sort=sort)
     result = []
     for item in items:
@@ -37,9 +39,11 @@ def get_items(
 @router.get("/items/{item_id}", response_model=schemas.Item)
 def get_item(
     item_id: int,
+    response: Response,
     db: Session = Depends(get_db),
 ):
     """View details of a specific auction item."""
+    response.headers["Cache-Control"] = "no-store, max-age=0"
     item = catalogue_service.get_item(db, item_id)
     result = schemas.Item.model_validate(item)
     result.links = [

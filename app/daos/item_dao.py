@@ -43,9 +43,9 @@ def update_item(db: Session, item: models.Item, update_in: schemas.ItemUpdate) -
 def list_active_items(
     db: Session,
     keyword: Optional[str] = None,
-    seller_id: Optional[int] = None,
     sort: Optional[str] = None,
 ) -> List[models.Item]:
+    """Public browse: live auctions only (active + end_time in the future)."""
     now = datetime.utcnow()
     query = (
         db.query(models.Item)
@@ -55,8 +55,6 @@ def list_active_items(
     if keyword:
         like_pattern = f"%{keyword}%"
         query = query.filter(models.Item.title.ilike(like_pattern))
-    if seller_id is not None:
-        query = query.filter(models.Item.seller_id == seller_id)
     if sort == "ending_soon":
         query = query.order_by(models.Item.end_time.asc())
     elif sort == "most_active":
@@ -64,4 +62,24 @@ def list_active_items(
     else:  # default / newest
         query = query.order_by(models.Item.id.desc())
     return query.all()
+
+
+def list_seller_listings(
+    db: Session,
+    seller_id: int,
+    keyword: Optional[str] = None,
+    sort: Optional[str] = None,
+    limit: int = 50,
+) -> List[models.Item]:
+    """Seller dashboard: active, closed, and paid items for this seller."""
+    q = db.query(models.Item).filter(models.Item.seller_id == seller_id)
+    if keyword:
+        q = q.filter(models.Item.title.ilike(f"%{keyword}%"))
+    if sort == "ending_soon":
+        q = q.order_by(models.Item.end_time.asc())
+    elif sort == "most_active":
+        q = q.order_by(models.Item.current_price.desc())
+    else:
+        q = q.order_by(models.Item.id.desc())
+    return q.limit(limit).all()
 

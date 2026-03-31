@@ -4,17 +4,34 @@ from sqlalchemy.orm import Session
 from app.daos import item_dao, order_dao, user_dao
 from app.models import models
 from app.schemas import schemas
+from app.services import notification_service
 from app.services.shipping_strategy import get_shipping_strategy
 
 
 def process_payment(
     db: Session, item_id: int, user_id: int, payment: schemas.PaymentRequest
 ) -> models.Order:
+    notification_service.maybe_finalize_expired_auction(db, item_id)
     item = item_dao.get_item(db, item_id)
     if not item:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Item not found",
+        )
+
+    if item.status == "active" and notification_service.auction_end_has_passed(item):
+        notification_service.maybe_finalize_expired_auction(db, item_id)
+        item = item_dao.get_item(db, item_id)
+        if not item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Item not found",
+            )
+
+    if item.status == "paid":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This item has already been paid for.",
         )
 
     if item.status != "closed":

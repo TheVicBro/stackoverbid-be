@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
 
 class Link(BaseModel):
@@ -150,6 +150,12 @@ class Item(BaseModel):
             except Exception:
                 return []
         return v or []
+
+    @field_serializer("end_time")
+    def serialize_end_time_utc_z(self, v: datetime) -> str:
+        """Naive DB times are UTC; browsers need an explicit offset or they parse as *local*."""
+        aware = v.replace(tzinfo=timezone.utc) if v.tzinfo is None else v.astimezone(timezone.utc)
+        return aware.isoformat(timespec="microseconds").replace("+00:00", "Z")
 
     class Config:
         from_attributes = True

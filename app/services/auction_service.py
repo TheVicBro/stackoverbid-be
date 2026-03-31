@@ -5,6 +5,7 @@ from fastapi import HTTPException
 
 from app.daos import bid_dao, item_dao
 from app.schemas import schemas
+from app.services import notification_service
 
 
 def create_item(db: Session, item_in: schemas.ItemCreate, seller_id: int) -> schemas.Item:
@@ -36,6 +37,11 @@ def edit_item(db: Session, item_id: int, seller_id: int, update_in: schemas.Item
 
 def place_bid(db: Session, item_id: int, user_id: int, bid_in: schemas.BidCreate) -> schemas.Bid:
 
+    item = item_dao.get_item(db, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="The item does not exist or cannot be found.")
+
+    notification_service.maybe_finalize_expired_auction(db, item_id)
     item = item_dao.get_item(db, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="The item does not exist or cannot be found.")

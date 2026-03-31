@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, HTTPException, Response, WebSocket, WebSocketDisconnect, status
 from jose import JWTError
 from sqlalchemy.orm import Session
 
@@ -89,9 +89,12 @@ async def websocket_notifications(
 
 @router.get("/", response_model=List[schemas.Notification])
 def list_notifications(
+    response: Response,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ) -> List[schemas.Notification]:
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    notification_service.flush_due_active_auctions(db)
     notifications = notification_service.list_notifications_for_user(db, current_user.id)
     result = []
     for n in notifications:
