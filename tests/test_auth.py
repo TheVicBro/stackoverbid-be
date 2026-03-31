@@ -101,3 +101,63 @@ class TestSignup:
         """Accessing a protected endpoint without auth returns 401."""
         resp = client.get("/catalogue/items")
         assert resp.status_code == 401
+
+
+class TestProfile:
+    def test_patch_me_updates_address(self, client, create_user):
+        user, token = create_user(username="pat", password="password123", address="Old Addr")
+        resp = client.patch(
+            "/auth/me",
+            json={"address": "99 New Ship St, Boston MA"},
+            headers=auth_header(token),
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["address"] == "99 New Ship St, Boston MA"
+        assert body["username"] == "pat"
+
+        me = client.get("/auth/me", headers=auth_header(token))
+        assert me.status_code == 200
+        assert me.json()["address"] == "99 New Ship St, Boston MA"
+
+    def test_put_me_updates_name(self, client, create_user):
+        _, token = create_user(first_name="A", last_name="B")
+        resp = client.put(
+            "/auth/me",
+            json={"first_name": "Putname"},
+            headers=auth_header(token),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["first_name"] == "Putname"
+
+    def test_post_profile_updates_name(self, client, create_user):
+        _, token = create_user(first_name="X", last_name="Y")
+        resp = client.post(
+            "/auth/profile",
+            json={"first_name": "Postname"},
+            headers=auth_header(token),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["first_name"] == "Postname"
+
+    def test_patch_me_empty_body(self, client, create_user):
+        _, token = create_user()
+        resp = client.patch("/auth/me", json={}, headers=auth_header(token))
+        assert resp.status_code == 400
+
+    def test_patch_me_name_only_preserves_address(self, client, create_user):
+        _, token = create_user(first_name="Old", address="100 Keep St")
+        resp = client.patch(
+            "/auth/me",
+            json={"first_name": "Newfirst"},
+            headers=auth_header(token),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["first_name"] == "Newfirst"
+        assert resp.json()["address"] == "100 Keep St"
+
+    def test_patch_me_can_clear_address(self, client, create_user):
+        _, token = create_user(address="Will Remove")
+        resp = client.patch("/auth/me", json={"address": ""}, headers=auth_header(token))
+        assert resp.status_code == 200
+        assert resp.json()["address"] == ""

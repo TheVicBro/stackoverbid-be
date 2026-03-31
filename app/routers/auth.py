@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models import models
 from app.schemas import schemas
 from app.services import auth_service
 from app.utils.auth import get_current_user
@@ -41,8 +42,30 @@ def login(credentials: schemas.UserLogin, response: Response, db: Session = Depe
     return result
 
 @router.get("/me", response_model=schemas.User)
-def get_me(current_user: schemas.User = Depends(get_current_user)):
-    return current_user
+def get_me(current_user: models.User = Depends(get_current_user)):
+    return schemas.User.model_validate(current_user)
+
+
+@router.patch("/me", response_model=schemas.User)
+@router.put("/me", response_model=schemas.User)
+def update_me(
+    body: schemas.UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """PATCH or PUT — same body. PUT avoids some proxies/CDNs that mishandle PATCH."""
+    return auth_service.update_profile(db, current_user.id, body)
+
+
+@router.post("/profile", response_model=schemas.User)
+def update_profile_post(
+    body: schemas.UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """POST fallback for environments that only allow GET/POST on cookie-auth APIs."""
+    return auth_service.update_profile(db, current_user.id, body)
+
 
 @router.post("/logout")
 def logout(response: Response):

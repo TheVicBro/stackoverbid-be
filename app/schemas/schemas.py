@@ -60,6 +60,29 @@ class User(BaseModel):
         from_attributes = True
 
 
+class UserUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    address: Optional[str] = None
+
+    @field_validator("first_name", "last_name")
+    @classmethod
+    def names_optional(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        s = v.strip()
+        if not s:
+            raise ValueError("Name cannot be empty.")
+        return s.title()
+
+    @field_validator("address")
+    @classmethod
+    def address_optional(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        return v.strip()
+
+
 class UserLogin(BaseModel):
     username: str
     password: str
