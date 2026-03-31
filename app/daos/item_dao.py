@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
+import json
 
 from sqlalchemy.orm import Session
 
@@ -17,6 +18,7 @@ def create_item(db: Session, item_in: schemas.ItemCreate, seller_id: int) -> mod
         seller_id=seller_id,
         shipping_time_days=item_in.shipping_time_days,
         expedited_shipping_cost=item_in.expedited_shipping_cost,
+        image_urls=json.dumps(item_in.image_urls or []),
     )
     db.add(db_item)
     db.commit()

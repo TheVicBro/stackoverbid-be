@@ -4,10 +4,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import models
 from app.schemas import schemas
 from app.services import catalogue_service
-from app.utils.auth import get_current_user
 
 
 router = APIRouter(
@@ -22,7 +20,6 @@ def get_items(
     keyword: Optional[str] = None,
     seller_id: Optional[int] = None,
     sort: Optional[str] = None,
-    current_user: models.User = Depends(get_current_user),
 ):
     """Browse/search active auction items."""
     items = catalogue_service.list_active_items(db, keyword=keyword, seller_id=seller_id, sort=sort)
@@ -41,7 +38,6 @@ def get_items(
 def get_item(
     item_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
 ):
     """View details of a specific auction item."""
     item = catalogue_service.get_item(db, item_id)
