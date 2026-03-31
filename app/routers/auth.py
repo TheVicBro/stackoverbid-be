@@ -28,12 +28,13 @@ def login(credentials: schemas.UserLogin, response: Response, db: Session = Depe
         schemas.Link(rel="notifications", href="/notifications/", method="GET"),
     ]
     
-    # Store token in HttpOnly cookie to mitigate XSS
+    # Store token in HttpOnly cookie to mitigate Cross-Origin XSS
     response.set_cookie(
         key="access_token",
         value=result.access_token,
         httponly=True,
-        samesite="lax",
+        samesite="none",
+        secure=True,
         max_age=60*60*24 # 24 hours
     )
     
@@ -45,5 +46,5 @@ def get_me(current_user: schemas.User = Depends(get_current_user)):
 
 @router.post("/logout")
 def logout(response: Response):
-    response.delete_cookie(key="access_token", httponly=True, samesite="lax")
+    response.delete_cookie(key="access_token", httponly=True, samesite="none", secure=True)
     return {"message": "Successfully logged out"}
