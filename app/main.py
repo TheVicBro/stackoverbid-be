@@ -18,6 +18,7 @@ app = FastAPI(
 
 origins = [
     "http://localhost:3000",
+    "https://stackoverbid-dev.vercel.app",
 ]
 
 frontend_url = os.getenv("FRONTEND_URL")
