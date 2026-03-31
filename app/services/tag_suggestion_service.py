@@ -11,6 +11,9 @@ from app.constants.marketplace import MARKETPLACE_TAGS, MARKETPLACE_TAGS_SET
 DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite-preview"
 MAX_IMAGE_BYTES = 4 * 1024 * 1024
 MAX_IMAGES = 4
+# HTTPS fetch of listing image URLs for Gemini (tight caps once we have a cover image).
+IMAGE_FETCH_TIMEOUT_FIRST_S = 4.0
+IMAGE_FETCH_TIMEOUT_AFTER_FIRST_S = 2.0
 
 # Keywords → canonical nav tag (first match wins per tag to avoid duplicates)
 _HEURISTIC_RULES: List[tuple[tuple[str, ...], str]] = [
@@ -191,11 +194,11 @@ def _guess_mime_from_url(url: str) -> str:
     return "image/jpeg"
 
 
-def _fetch_image_part(url: str):
+def _fetch_image_part(url: str, *, timeout: float):
     if not url.startswith("https://"):
         return None
     try:
-        with httpx.Client(timeout=25.0, follow_redirects=True) as client:
+        with httpx.Client(timeout=timeout, follow_redirects=True) as client:
             r = client.get(url)
             r.raise_for_status()
             body = r.content
@@ -245,7 +248,9 @@ def suggest_listing_gemini(title: str, description: str, image_urls: List[str]) 
 
     parts: List[Any] = [genai_types.Part.from_text(text=instructions)]
     for url in image_urls[:MAX_IMAGES]:
-        img_part = _fetch_image_part(url)
+        have_image = len(parts) > 1
+        t = IMAGE_FETCH_TIMEOUT_AFTER_FIRST_S if have_image else IMAGE_FETCH_TIMEOUT_FIRST_S
+        img_part = _fetch_image_part(url, timeout=t)
         if img_part is not None:
             parts.append(img_part)
 
@@ -271,8 +276,8 @@ def suggest_listing_gemini(title: str, description: str, image_urls: List[str]) 
 def suggest_listing(title: str, description: str, image_urls: List[str]) -> ListingSuggestion:
     """
     When the user clicks suggest on the create listing form:
-    - With GEMINI_API_KEY: Gemini reads draft title/description plus up to 4 HTTPS listing images and returns
-      suggested title, description, and category tags.
+    - With GEMINI_API_KEY: Gemini reads draft title/description plus up to 4 HTTPS listing images (fetched server-side)
+      and returns suggested title, description, and category tags.
     - Otherwise: keyword heuristics on title+description for tags only (no images).
     """
     t, d = title.strip(), description.strip()
