@@ -1,12 +1,19 @@
 import json
 import os
 import re
-from typing import Any, List, Tuple
+from dataclasses import dataclass
+from typing import Any, List, Optional
+
+import httpx
 
 from app.constants.marketplace import MARKETPLACE_TAGS, MARKETPLACE_TAGS_SET
 
+DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite-preview"
+MAX_IMAGE_BYTES = 4 * 1024 * 1024
+MAX_IMAGES = 4
+
 # Keywords → canonical nav tag (first match wins per tag to avoid duplicates)
-_HEURISTIC_RULES: List[Tuple[Tuple[str, ...], str]] = [
+_HEURISTIC_RULES: List[tuple[tuple[str, ...], str]] = [
     (
         (
             "phone",
@@ -91,6 +98,14 @@ _HEURISTIC_RULES: List[Tuple[Tuple[str, ...], str]] = [
 ]
 
 
+@dataclass
+class ListingSuggestion:
+    tags: List[str]
+    source: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+
+
 def _normalize_blob(title: str, description: str) -> str:
     return f"{title}\n{description}".lower()
 
@@ -110,12 +125,10 @@ def suggest_tags_heuristic(title: str, description: str) -> List[str]:
     return out
 
 
-def _parse_tags_json_payload(parsed: Any) -> List[str] | None:
-    if not isinstance(parsed, dict):
-        return None
+def _parse_tags_from_dict(parsed: dict) -> List[str]:
     raw_tags = parsed.get("tags")
     if not isinstance(raw_tags, list):
-        return None
+        return []
     out: List[str] = []
     seen: set[str] = set()
     for t in raw_tags:
@@ -128,6 +141,23 @@ def _parse_tags_json_payload(parsed: Any) -> List[str] | None:
         if len(out) >= 5:
             break
     return out[:3] if len(out) > 3 else out
+
+
+def _parse_listing_json(parsed: dict) -> tuple[Optional[str], Optional[str], List[str]]:
+    title = parsed.get("title")
+    desc = parsed.get("description")
+    t_out: Optional[str] = None
+    d_out: Optional[str] = None
+    if isinstance(title, str):
+        s = title.strip()
+        if s:
+            t_out = s[:200]
+    if isinstance(desc, str):
+        s = desc.strip()
+        if s:
+            d_out = s[:8000]
+    tags = _parse_tags_from_dict(parsed)
+    return t_out, d_out, tags
 
 
 def _json_from_model_text(text: str) -> dict | None:
@@ -150,51 +180,111 @@ def _json_from_model_text(text: str) -> dict | None:
     return None
 
 
-def suggest_tags_gemini(title: str, description: str) -> List[str] | None:
+def _guess_mime_from_url(url: str) -> str:
+    u = url.lower().split("?", 1)[0]
+    if u.endswith(".png"):
+        return "image/png"
+    if u.endswith(".webp"):
+        return "image/webp"
+    if u.endswith(".gif"):
+        return "image/gif"
+    return "image/jpeg"
+
+
+def _fetch_image_part(url: str):
+    if not url.startswith("https://"):
+        return None
+    try:
+        with httpx.Client(timeout=25.0, follow_redirects=True) as client:
+            r = client.get(url)
+            r.raise_for_status()
+            body = r.content
+            if len(body) > MAX_IMAGE_BYTES:
+                return None
+            ct = r.headers.get("content-type", "").split(";")[0].strip().lower()
+            if ct.startswith("image/"):
+                mime = ct
+            else:
+                mime = _guess_mime_from_url(url)
+            from google.genai import types as genai_types
+
+            return genai_types.Part.from_bytes(data=body, mime_type=mime)
+    except Exception:
+        return None
+
+
+def suggest_listing_gemini(title: str, description: str, image_urls: List[str]) -> ListingSuggestion | None:
     api_key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or "").strip()
     if not api_key:
         return None
 
     try:
         from google import genai
+        from google.genai import types as genai_types
     except ImportError:
         return None
 
     allowed = ", ".join(f'"{x}"' for x in MARKETPLACE_TAGS)
-    user_block = f"Title:\n{title.strip()}\n\nDescription:\n{description.strip()}"
-    prompt = (
-        "You assign marketplace categories. Pick 1 to 3 labels from this exact list only "
-        f"(spelling and spacing must match exactly): {allowed}.\n"
-        'Respond with JSON only, no markdown: {"tags":["Label1",...]} — use fewer if unsure. '
-        "If nothing fits, use {\"tags\":[]}.\n\n"
-        f"{user_block}"
+    draft = (
+        f"Current draft title (may be empty): {title.strip() or '[empty]'}\n"
+        f"Current draft description (may be empty): {description.strip() or '[empty]'}\n"
+    )
+    instructions = (
+        "You help sellers on an auction marketplace. After any listing photos (if provided), respond with JSON only, "
+        "no markdown fences:\n"
+        '{"title":"Short compelling auction title, max ~80 characters",'
+        '"description":"2–5 sentences: what the item is, condition, what is included, shipping notes if obvious. '
+        'Honest, neutral tone.",'
+        '"tags":["Tag1",...]}\n\n'
+        f"tags: pick 1–3 values from this exact list only (spelling and spacing must match): {allowed}. "
+        "Use [] if none fit.\n"
+        "If draft title/description are already good, keep or lightly polish them. If photos show the item, prioritize "
+        "what you see in the images over weak drafts. If there are no photos, infer only from the drafts.\n\n"
+        f"{draft}"
     )
 
-    model = (os.getenv("GEMINI_TAG_MODEL") or "gemini-2.0-flash").strip()
+    parts: List[Any] = [genai_types.Part.from_text(text=instructions)]
+    for url in image_urls[:MAX_IMAGES]:
+        img_part = _fetch_image_part(url)
+        if img_part is not None:
+            parts.append(img_part)
+
+    model = (os.getenv("GEMINI_TAG_MODEL") or DEFAULT_GEMINI_MODEL).strip()
 
     try:
         client = genai.Client(api_key=api_key)
-        response = client.models.generate_content(model=model, contents=prompt)
+        response = client.models.generate_content(model=model, contents=parts)
         raw = (getattr(response, "text", None) or "").strip()
         if not raw:
             return None
         parsed = _json_from_model_text(raw)
         if parsed is None:
             return None
-        tags = _parse_tags_json_payload(parsed)
-        return tags
+        t_out, d_out, tags = _parse_listing_json(parsed)
+        if not t_out and not d_out and not tags:
+            return None
+        return ListingSuggestion(tags=tags, source="gemini", title=t_out, description=d_out)
     except Exception:
         return None
 
 
-def suggest_tags(title: str, description: str) -> Tuple[List[str], str]:
-    """Returns (tags, source) where source is 'gemini' or 'heuristic'."""
+def suggest_listing(title: str, description: str, image_urls: List[str]) -> ListingSuggestion:
+    """
+    When the user clicks suggest on the create listing form:
+    - With GEMINI_API_KEY: Gemini reads draft title/description plus up to 4 HTTPS listing images and returns
+      suggested title, description, and category tags.
+    - Otherwise: keyword heuristics on title+description for tags only (no images).
+    """
     t, d = title.strip(), description.strip()
-    if not t and not d:
-        return [], "heuristic"
+    urls = [u.strip() for u in image_urls if isinstance(u, str) and u.startswith("https://")][:MAX_IMAGES]
 
-    gemini = suggest_tags_gemini(t, d)
-    if gemini is not None and len(gemini) > 0:
-        return gemini, "gemini"
+    if not t and not d and not urls:
+        return ListingSuggestion(tags=[], source="heuristic")
 
-    return suggest_tags_heuristic(t, d), "heuristic"
+    gemini = suggest_listing_gemini(t, d, urls)
+    if gemini is not None and (gemini.title or gemini.description or gemini.tags):
+        return gemini
+
+    if t or d:
+        return ListingSuggestion(tags=suggest_tags_heuristic(t, d), source="heuristic")
+    return ListingSuggestion(tags=[], source="heuristic")

@@ -28,9 +28,14 @@ def suggest_listing_tags(
     body: schemas.SuggestTagsRequest,
     current_user: models.User = Depends(get_current_user),
 ):
-    """Suggest marketplace category tags from title/description (Gemini if configured, else keyword rules)."""
-    tags, source = tag_suggestion_service.suggest_tags(body.title, body.description)
-    return schemas.SuggestTagsResponse(tags=tags, source=source)
+    """Suggest title, description, and/or category tags from draft text + optional listing image URLs (Gemini if configured)."""
+    r = tag_suggestion_service.suggest_listing(body.title, body.description, body.image_urls)
+    return schemas.SuggestTagsResponse(
+        tags=r.tags,
+        source=r.source,
+        title=r.title,
+        description=r.description,
+    )
 
 
 @router.post("/items", response_model=schemas.Item)

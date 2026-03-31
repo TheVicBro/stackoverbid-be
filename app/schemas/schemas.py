@@ -220,11 +220,27 @@ class Item(BaseModel):
 class SuggestTagsRequest(BaseModel):
     title: str = ""
     description: str = ""
+    image_urls: List[str] = Field(default_factory=list)
+
+    @field_validator("image_urls")
+    @classmethod
+    def only_https_image_urls(cls, v: List[str]) -> List[str]:
+        out: List[str] = []
+        for u in v[:8]:
+            if isinstance(u, str):
+                s = u.strip()
+                if s.startswith("https://"):
+                    out.append(s)
+            if len(out) >= 4:
+                break
+        return out
 
 
 class SuggestTagsResponse(BaseModel):
     tags: List[str]
     source: str  # "gemini" | "heuristic"
+    title: Optional[str] = None
+    description: Optional[str] = None
 
 
 class ItemUpdate(BaseModel):
