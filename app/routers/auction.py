@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import models
 from app.schemas import schemas
-from app.services import auction_service, buyer_activity_service
+from app.services import auction_service, buyer_activity_service, tag_suggestion_service
 from app.utils.auth import get_current_user
 
 
@@ -21,6 +21,16 @@ def my_buyer_dashboard(
 ):
     """Listings you have bid on (grouped), wins awaiting payment, and completed purchases."""
     return buyer_activity_service.get_my_buyer_dashboard(db, current_user.id)
+
+
+@router.post("/items/suggest-tags", response_model=schemas.SuggestTagsResponse)
+def suggest_listing_tags(
+    body: schemas.SuggestTagsRequest,
+    current_user: models.User = Depends(get_current_user),
+):
+    """Suggest marketplace category tags from title/description (Gemini if configured, else keyword rules)."""
+    tags, source = tag_suggestion_service.suggest_tags(body.title, body.description)
+    return schemas.SuggestTagsResponse(tags=tags, source=source)
 
 
 @router.post("/items", response_model=schemas.Item)

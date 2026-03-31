@@ -22,7 +22,7 @@ def get_items(
     seller_id: Optional[int] = None,
     sort: Optional[str] = None,
 ):
-    """Browse/search active auction items."""
+    """Browse/search active auction items (keyword matches title or description)."""
     response.headers["Cache-Control"] = "no-store, max-age=0"
     items = catalogue_service.list_active_items(db, keyword=keyword, seller_id=seller_id, sort=sort)
     result = []

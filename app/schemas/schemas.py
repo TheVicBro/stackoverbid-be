@@ -3,6 +3,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
+from app.constants.marketplace import MARKETPLACE_TAGS_SET
+
 
 class Link(BaseModel):
     rel: str
@@ -116,6 +118,24 @@ class ItemCreate(BaseModel):
     shipping_time_days: Optional[int] = 5
     expedited_shipping_cost: Optional[float] = 15.0
     image_urls: List[str] = Field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
+
+    @field_validator("tags")
+    @classmethod
+    def tags_must_be_allowed(cls, v: List[str]) -> List[str]:
+        seen: set[str] = set()
+        out: List[str] = []
+        for t in v:
+            s = t.strip()
+            if not s or s in seen:
+                continue
+            if s not in MARKETPLACE_TAGS_SET:
+                raise ValueError(f"Invalid tag: {s!r}. Must be one of the marketplace categories.")
+            seen.add(s)
+            out.append(s)
+        if len(out) > 5:
+            raise ValueError("At most 5 tags are allowed.")
+        return out
 
     @field_validator("title")
     @classmethod
@@ -161,7 +181,20 @@ class Item(BaseModel):
     shipping_time_days: int
     expedited_shipping_cost: float
     image_urls: List[str] = Field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
     links: List[Link] = []
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def parse_tags(cls, v):
+        if isinstance(v, str):
+            try:
+                import json
+
+                return json.loads(v)
+            except Exception:
+                return []
+        return v or []
 
     @field_validator("image_urls", mode="before")
     @classmethod
@@ -182,6 +215,16 @@ class Item(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class SuggestTagsRequest(BaseModel):
+    title: str = ""
+    description: str = ""
+
+
+class SuggestTagsResponse(BaseModel):
+    tags: List[str]
+    source: str  # "gemini" | "heuristic"
 
 
 class ItemUpdate(BaseModel):

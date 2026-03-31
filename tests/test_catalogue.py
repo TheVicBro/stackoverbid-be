@@ -20,7 +20,7 @@ class TestBrowseItems:
             assert "starting_price" in item
 
     def test_search_by_keyword(self, client, create_user, create_item):
-        """Search returns only items whose title matches the keyword."""
+        """Search returns items whose title matches the keyword."""
         seller, _ = create_user(username="seller", password="password123")
         _, token = create_user(username="buyer", password="password123")
         create_item(seller_id=seller.id, title="Vintage Guitar")
@@ -31,6 +31,19 @@ class TestBrowseItems:
         items = resp.json()
         assert len(items) == 1
         assert "guitar" in items[0]["title"].lower()
+
+    def test_search_by_keyword_matches_description(self, client, create_user, create_item):
+        """Keyword also matches item description (not only title)."""
+        seller, _ = create_user(username="seller", password="password123")
+        _, token = create_user(username="buyer2", password="password123")
+        create_item(seller_id=seller.id, title="Mystery Box", description="Contains a vintage guitar pick")
+        create_item(seller_id=seller.id, title="Other Thing", description="No overlap keyword here")
+
+        resp = client.get("/catalogue/items", params={"keyword": "vintage"}, headers=auth_header(token))
+        assert resp.status_code == 200
+        items = resp.json()
+        assert len(items) == 1
+        assert items[0]["title"] == "Mystery Box"
 
     def test_search_no_results(self, client, create_user, create_item):
         """Keyword that matches nothing returns empty list."""

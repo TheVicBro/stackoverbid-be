@@ -43,6 +43,7 @@ class Item(Base):
     shipping_time_days: Mapped[int] = mapped_column(default=5)
     expedited_shipping_cost: Mapped[float] = mapped_column(default=15.0)
     image_urls: Mapped[Optional[str]] = mapped_column(String, nullable=True, default="[]")  # JSON array of URLs
+    tags: Mapped[str] = mapped_column(String, nullable=False, default="[]")  # JSON array of marketplace category labels
 
     seller: Mapped[User] = relationship(
         back_populates="items_for_sale", foreign_keys=[seller_id]

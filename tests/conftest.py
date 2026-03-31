@@ -104,6 +104,7 @@ def create_item(db):
             shipping_time_days=shipping_time_days,
             expedited_shipping_cost=expedited_shipping_cost,
             highest_bidder_id=highest_bidder_id,
+            tags="[]",
         )
         db.add(item)
         db.commit()

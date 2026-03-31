@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 import json
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models import models
@@ -19,6 +20,7 @@ def create_item(db: Session, item_in: schemas.ItemCreate, seller_id: int) -> mod
         shipping_time_days=item_in.shipping_time_days,
         expedited_shipping_cost=item_in.expedited_shipping_cost,
         image_urls=json.dumps(item_in.image_urls or []),
+        tags=json.dumps(item_in.tags or []),
     )
     db.add(db_item)
     db.commit()
@@ -60,7 +62,13 @@ def list_active_items(
     )
     if keyword:
         like_pattern = f"%{keyword}%"
-        query = query.filter(models.Item.title.ilike(like_pattern))
+        query = query.filter(
+            or_(
+                models.Item.title.ilike(like_pattern),
+                models.Item.description.ilike(like_pattern),
+                models.Item.tags.ilike(like_pattern),
+            )
+        )
     if sort == "ending_soon":
         query = query.order_by(models.Item.end_time.asc())
     elif sort == "most_active":
@@ -80,7 +88,14 @@ def list_seller_listings(
     """Seller dashboard: active, closed, and paid items for this seller."""
     q = db.query(models.Item).filter(models.Item.seller_id == seller_id)
     if keyword:
-        q = q.filter(models.Item.title.ilike(f"%{keyword}%"))
+        like_pattern = f"%{keyword}%"
+        q = q.filter(
+            or_(
+                models.Item.title.ilike(like_pattern),
+                models.Item.description.ilike(like_pattern),
+                models.Item.tags.ilike(like_pattern),
+            )
+        )
     if sort == "ending_soon":
         q = q.order_by(models.Item.end_time.asc())
     elif sort == "most_active":
