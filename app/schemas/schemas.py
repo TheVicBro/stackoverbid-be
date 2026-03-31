@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class Link(BaseModel):
@@ -92,6 +92,7 @@ class ItemCreate(BaseModel):
     end_time: datetime
     shipping_time_days: Optional[int] = 5
     expedited_shipping_cost: Optional[float] = 15.0
+    image_urls: List[str] = Field(default_factory=list)
 
     @field_validator("title")
     @classmethod
@@ -136,7 +137,19 @@ class Item(BaseModel):
     status: str
     shipping_time_days: int
     expedited_shipping_cost: float
+    image_urls: List[str] = Field(default_factory=list)
     links: List[Link] = []
+
+    @field_validator("image_urls", mode="before")
+    @classmethod
+    def parse_image_urls(cls, v):
+        if isinstance(v, str):
+            try:
+                import json
+                return json.loads(v)
+            except Exception:
+                return []
+        return v or []
 
     class Config:
         from_attributes = True
