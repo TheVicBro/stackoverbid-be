@@ -20,10 +20,12 @@ router = APIRouter(
 def get_items(
     db: Session = Depends(get_db),
     keyword: Optional[str] = None,
+    seller_id: Optional[int] = None,
+    sort: Optional[str] = None,
     current_user: models.User = Depends(get_current_user),
 ):
     """Browse/search active auction items."""
-    items = catalogue_service.list_active_items(db, keyword=keyword)
+    items = catalogue_service.list_active_items(db, keyword=keyword, seller_id=seller_id, sort=sort)
     result = []
     for item in items:
         item_schema = schemas.Item.model_validate(item)

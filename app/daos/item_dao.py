@@ -38,7 +38,12 @@ def update_item(db: Session, item: models.Item, update_in: schemas.ItemUpdate) -
     return item
 
 
-def list_active_items(db: Session, keyword: Optional[str] = None) -> List[models.Item]:
+def list_active_items(
+    db: Session,
+    keyword: Optional[str] = None,
+    seller_id: Optional[int] = None,
+    sort: Optional[str] = None,
+) -> List[models.Item]:
     now = datetime.utcnow()
     query = (
         db.query(models.Item)
@@ -48,5 +53,13 @@ def list_active_items(db: Session, keyword: Optional[str] = None) -> List[models
     if keyword:
         like_pattern = f"%{keyword}%"
         query = query.filter(models.Item.title.ilike(like_pattern))
+    if seller_id is not None:
+        query = query.filter(models.Item.seller_id == seller_id)
+    if sort == "ending_soon":
+        query = query.order_by(models.Item.end_time.asc())
+    elif sort == "most_active":
+        query = query.order_by(models.Item.current_price.desc())
+    else:  # default / newest
+        query = query.order_by(models.Item.id.desc())
     return query.all()
 
