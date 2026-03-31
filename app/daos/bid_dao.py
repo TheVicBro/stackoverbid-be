@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -27,4 +27,15 @@ def list_bids_for_item_desc(db: Session, item_id: int) -> List[models.Bid]:
         .order_by(models.Bid.amount.desc(), models.Bid.timestamp.asc())
         .all()
     )
+
+
+def list_max_bid_per_item_for_user(db: Session, user_id: int) -> List[Tuple[int, float]]:
+    """(item_id, max bid amount) for each item this user has bid on."""
+    rows = (
+        db.query(models.Bid.item_id, func.max(models.Bid.amount))
+        .filter(models.Bid.user_id == user_id)
+        .group_by(models.Bid.item_id)
+        .all()
+    )
+    return [(int(r[0]), float(r[1])) for r in rows]
 

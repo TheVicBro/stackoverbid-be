@@ -30,6 +30,12 @@ def get_item(db: Session, item_id: int) -> Optional[models.Item]:
     return db.query(models.Item).filter(models.Item.id == item_id).first()
 
 
+def get_items_by_ids(db: Session, item_ids: List[int]) -> List[models.Item]:
+    if not item_ids:
+        return []
+    return db.query(models.Item).filter(models.Item.id.in_(item_ids)).all()
+
+
 def update_item(db: Session, item: models.Item, update_in: schemas.ItemUpdate) -> models.Item:
     if update_in.title is not None:
         item.title = update_in.title

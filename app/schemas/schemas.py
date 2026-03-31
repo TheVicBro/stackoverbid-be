@@ -219,6 +219,46 @@ class Bid(BaseModel):
         from_attributes = True
 
 
+class MyBidItemRow(BaseModel):
+    """One listing the signed-in user has bid on (dashboard row)."""
+
+    item_id: int
+    title: str
+    status: str
+    current_price: float
+    my_highest_bid: float
+    end_time: Optional[datetime] = None
+
+    @field_serializer("end_time")
+    def serialize_end_time_utc_z(self, v: Optional[datetime]) -> Optional[str]:
+        if v is None:
+            return None
+        aware = v.replace(tzinfo=timezone.utc) if v.tzinfo is None else v.astimezone(timezone.utc)
+        return aware.isoformat(timespec="microseconds").replace("+00:00", "Z")
+
+
+class MyPurchaseRow(BaseModel):
+    order_id: int
+    item_id: int
+    item_title: str
+    amount_paid: float
+    paid_at: datetime
+
+    @field_serializer("paid_at")
+    def serialize_paid_at_utc_z(self, v: datetime) -> str:
+        aware = v.replace(tzinfo=timezone.utc) if v.tzinfo is None else v.astimezone(timezone.utc)
+        return aware.isoformat(timespec="microseconds").replace("+00:00", "Z")
+
+
+class MyBuyerDashboard(BaseModel):
+    """Buyer-centric view: live bids, wins awaiting payment, past bids, and completed purchases."""
+
+    active_bids: List[MyBidItemRow]
+    won_awaiting_payment: List[MyBidItemRow]
+    other_auctions_i_bid_on: List[MyBidItemRow]
+    purchases: List[MyPurchaseRow]
+
+
 class PaymentRequest(BaseModel):
     credit_card_number: str
     name_on_card: str

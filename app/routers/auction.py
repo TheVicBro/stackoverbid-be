@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import models
 from app.schemas import schemas
-from app.services import auction_service
+from app.services import auction_service, buyer_activity_service
 from app.utils.auth import get_current_user
 
 
@@ -12,6 +12,15 @@ router = APIRouter(
     prefix="/auction",
     tags=["auction"],
 )
+
+
+@router.get("/my/dashboard", response_model=schemas.MyBuyerDashboard)
+def my_buyer_dashboard(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Listings you have bid on (grouped), wins awaiting payment, and completed purchases."""
+    return buyer_activity_service.get_my_buyer_dashboard(db, current_user.id)
 
 
 @router.post("/items", response_model=schemas.Item)
