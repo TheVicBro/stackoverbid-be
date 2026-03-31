@@ -350,6 +350,10 @@ class Notification(BaseModel):
         from_attributes = True
 
 
+class NotificationDismiss(BaseModel):
+    notification_id: int
+
+
 class BroadcastEndResponse(BaseModel):
     message: str
     links: List[Link] = []

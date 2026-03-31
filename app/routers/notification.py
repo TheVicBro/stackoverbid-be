@@ -110,6 +110,56 @@ def list_notifications(
     return result
 
 
+@router.post("/dismiss", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+def dismiss_notification(
+    body: schemas.NotificationDismiss,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """POST fallback when DELETE is blocked or unavailable (same as DELETE /{id})."""
+    from app.daos import notification_dao
+
+    if not notification_dao.delete_notification_for_user(db, body.notification_id, current_user.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found.")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/dismiss-all", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+def dismiss_all_notifications(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """POST fallback when DELETE /all is blocked (same as DELETE /all)."""
+    from app.daos import notification_dao
+
+    notification_dao.delete_all_notifications_for_user(db, current_user.id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/all", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+def delete_all_notifications(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    from app.daos import notification_dao
+
+    notification_dao.delete_all_notifications_for_user(db, current_user.id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/{notification_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+def delete_notification(
+    notification_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    from app.daos import notification_dao
+
+    if not notification_dao.delete_notification_for_user(db, notification_id, current_user.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found.")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post("/items/{item_id}/broadcast-end", response_model=schemas.BroadcastEndResponse)
 async def broadcast_auction_end(
     item_id: int,

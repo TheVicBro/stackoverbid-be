@@ -79,3 +79,86 @@ class TestNotifications:
 
         resp = client.get("/notifications/", headers=auth_header(bystander_token))
         assert resp.json() == []
+
+    def test_delete_own_notification(self, client, create_user, create_item, create_bid):
+        seller, seller_token = create_user(username="sdel", password="password123")
+        buyer, buyer_token = create_user(username="bdel", password="password123")
+        past = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
+        item = create_item(seller_id=seller.id, starting_price=10.0, end_time=past)
+        create_bid(item_id=item.id, user_id=buyer.id, amount=20.0)
+        client.post(
+            f"/notifications/items/{item.id}/broadcast-end",
+            headers=auth_header(seller_token),
+        )
+        notifs = client.get("/notifications/", headers=auth_header(buyer_token)).json()
+        assert len(notifs) >= 1
+        nid = notifs[0]["id"]
+        del_resp = client.delete(f"/notifications/{nid}", headers=auth_header(buyer_token))
+        assert del_resp.status_code == 204
+        after = client.get("/notifications/", headers=auth_header(buyer_token)).json()
+        assert not any(n["id"] == nid for n in after)
+
+    def test_delete_other_users_notification_forbidden(self, client, create_user, create_item, create_bid):
+        seller, seller_token = create_user(username="s2del", password="password123")
+        buyer, buyer_token = create_user(username="b2del", password="password123")
+        other, other_token = create_user(username="odel", password="password123")
+        past = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
+        item = create_item(seller_id=seller.id, starting_price=10.0, end_time=past)
+        create_bid(item_id=item.id, user_id=buyer.id, amount=20.0)
+        client.post(
+            f"/notifications/items/{item.id}/broadcast-end",
+            headers=auth_header(seller_token),
+        )
+        notifs = client.get("/notifications/", headers=auth_header(buyer_token)).json()
+        nid = notifs[0]["id"]
+        del_resp = client.delete(f"/notifications/{nid}", headers=auth_header(other_token))
+        assert del_resp.status_code == 404
+
+    def test_delete_all_notifications(self, client, create_user, create_item, create_bid):
+        seller, seller_token = create_user(username="s3del", password="password123")
+        buyer, buyer_token = create_user(username="b3del", password="password123")
+        past = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
+        item = create_item(seller_id=seller.id, starting_price=10.0, end_time=past)
+        create_bid(item_id=item.id, user_id=buyer.id, amount=20.0)
+        client.post(
+            f"/notifications/items/{item.id}/broadcast-end",
+            headers=auth_header(seller_token),
+        )
+        assert len(client.get("/notifications/", headers=auth_header(buyer_token)).json()) >= 1
+        clr = client.delete("/notifications/all", headers=auth_header(buyer_token))
+        assert clr.status_code == 204
+        assert client.get("/notifications/", headers=auth_header(buyer_token)).json() == []
+
+    def test_post_dismiss_notification(self, client, create_user, create_item, create_bid):
+        seller, seller_token = create_user(username="spost", password="password123")
+        buyer, buyer_token = create_user(username="bpost", password="password123")
+        past = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
+        item = create_item(seller_id=seller.id, starting_price=10.0, end_time=past)
+        create_bid(item_id=item.id, user_id=buyer.id, amount=20.0)
+        client.post(
+            f"/notifications/items/{item.id}/broadcast-end",
+            headers=auth_header(seller_token),
+        )
+        notifs = client.get("/notifications/", headers=auth_header(buyer_token)).json()
+        nid = notifs[0]["id"]
+        r = client.post(
+            "/notifications/dismiss",
+            json={"notification_id": nid},
+            headers=auth_header(buyer_token),
+        )
+        assert r.status_code == 204
+        assert client.get("/notifications/", headers=auth_header(buyer_token)).json() == []
+
+    def test_post_dismiss_all(self, client, create_user, create_item, create_bid):
+        seller, seller_token = create_user(username="spa", password="password123")
+        buyer, buyer_token = create_user(username="bpa", password="password123")
+        past = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
+        item = create_item(seller_id=seller.id, starting_price=10.0, end_time=past)
+        create_bid(item_id=item.id, user_id=buyer.id, amount=20.0)
+        client.post(
+            f"/notifications/items/{item.id}/broadcast-end",
+            headers=auth_header(seller_token),
+        )
+        r = client.post("/notifications/dismiss-all", headers=auth_header(buyer_token))
+        assert r.status_code == 204
+        assert client.get("/notifications/", headers=auth_header(buyer_token)).json() == []

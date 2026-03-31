@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -34,4 +34,32 @@ def create_notification(
     db.commit()
     db.refresh(notification)
     return notification
+
+
+def get_notification_for_user(
+    db: Session, notification_id: int, user_id: int
+) -> Optional[models.Notification]:
+    return (
+        db.query(models.Notification)
+        .filter(models.Notification.id == notification_id)
+        .filter(models.Notification.user_id == user_id)
+        .first()
+    )
+
+
+def delete_notification_for_user(db: Session, notification_id: int, user_id: int) -> bool:
+    n = get_notification_for_user(db, notification_id, user_id)
+    if not n:
+        return False
+    db.delete(n)
+    db.commit()
+    return True
+
+
+def delete_all_notifications_for_user(db: Session, user_id: int) -> int:
+    q = db.query(models.Notification).filter(models.Notification.user_id == user_id)
+    count = q.count()
+    q.delete(synchronize_session=False)
+    db.commit()
+    return count
 
