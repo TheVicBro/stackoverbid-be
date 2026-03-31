@@ -19,7 +19,14 @@ class UserCreate(BaseModel):
     password: str
     first_name: str
     last_name: str
-    address: str
+    address: Optional[str] = ""
+
+    @field_validator("first_name", "last_name")
+    @classmethod
+    def capitalize_name(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Name cannot be empty.")
+        return v.strip().title()
 
     @field_validator("username")
     @classmethod
