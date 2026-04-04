@@ -5,6 +5,7 @@ load_dotenv()
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import Response
 from sqlalchemy import inspect, text
 
 from app.database import engine, Base
@@ -62,4 +63,14 @@ app.include_router(notification.router)
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to StackOverbid API"}
+    return {
+        "service": "stackoverbid-api",
+        "status": "ok",
+        "version": app.version,
+    }
+
+
+@app.head("/")
+def head_root():
+    """HEAD / for load balancers and synthetic checks; no response body."""
+    return Response(status_code=200)
