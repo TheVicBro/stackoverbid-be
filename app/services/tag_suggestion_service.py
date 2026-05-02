@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import re
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, TimeoutError as FuturesTimeoutError, as_completed
 from dataclasses import dataclass
 from typing import Any, List, Optional
 
@@ -13,7 +13,11 @@ from app.constants.marketplace import MARKETPLACE_TAGS, MARKETPLACE_TAGS_SET
 logger = logging.getLogger(__name__)
 
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
-GEMINI_TIMEOUT_S = 30.0
+# Per-attempt HTTP read timeout passed to the SDK.  The SDK (tenacity) may
+# retry on timeout, so we also enforce GEMINI_TOTAL_TIMEOUT_S as a hard
+# wall-clock cap on the entire generate_content call (including retries).
+GEMINI_TIMEOUT_S = 15.0
+GEMINI_TOTAL_TIMEOUT_S = 20.0
 MAX_IMAGE_BYTES = 4 * 1024 * 1024
 MAX_IMAGES = 4
 # Per-image HTTPS fetch timeout. All images are fetched concurrently so these
@@ -279,7 +283,22 @@ def suggest_listing_gemini(title: str, description: str, image_urls: List[str]) 
             api_key=api_key,
             http_options={"timeout": GEMINI_TIMEOUT_S},
         )
-        response = client.models.generate_content(model=model, contents=parts)
+        # The SDK uses tenacity internally and may retry on timeouts, which
+        # can multiply the wait time.  Enforce an absolute wall-clock cap so
+        # the endpoint always returns within a predictable window.
+        with ThreadPoolExecutor(max_workers=1) as _gemini_pool:
+            _future: Future = _gemini_pool.submit(
+                client.models.generate_content, model, parts
+            )
+            try:
+                response = _future.result(timeout=GEMINI_TOTAL_TIMEOUT_S)
+            except FuturesTimeoutError:
+                logger.error(
+                    "Gemini total timeout (%.0fs) exceeded (model=%s) — falling back to heuristic",
+                    GEMINI_TOTAL_TIMEOUT_S,
+                    model,
+                )
+                return None
         raw = (getattr(response, "text", None) or "").strip()
         if not raw:
             logger.warning("Gemini returned empty text for model=%s", model)
