@@ -12,8 +12,17 @@ if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
 # SQLite needs connect_args for multithreading, Postgres does not
 connect_args = {"check_same_thread": False} if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else {}
 
+is_postgres = not SQLALCHEMY_DATABASE_URL.startswith("sqlite")
+
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args=connect_args
+    SQLALCHEMY_DATABASE_URL,
+    connect_args=connect_args,
+    # Pre-ping checks the connection before use; discards stale ones so the
+    # pool never hands a dead SSL connection to a request.
+    pool_pre_ping=is_postgres,
+    # Recycle connections older than 10 minutes to stay ahead of the
+    # server-side idle timeout on Neon / Render managed Postgres.
+    pool_recycle=600 if is_postgres else -1,
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
