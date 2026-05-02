@@ -288,7 +288,7 @@ def suggest_listing_gemini(title: str, description: str, image_urls: List[str]) 
         # the endpoint always returns within a predictable window.
         with ThreadPoolExecutor(max_workers=1) as _gemini_pool:
             _future: Future = _gemini_pool.submit(
-                client.models.generate_content, model, parts
+                client.models.generate_content, model=model, contents=parts
             )
             try:
                 response = _future.result(timeout=GEMINI_TOTAL_TIMEOUT_S)
