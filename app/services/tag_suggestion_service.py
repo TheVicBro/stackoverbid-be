@@ -1,6 +1,8 @@
 import json
+import logging
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Any, List, Optional
 
@@ -8,12 +10,15 @@ import httpx
 
 from app.constants.marketplace import MARKETPLACE_TAGS, MARKETPLACE_TAGS_SET
 
-DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite-preview"
+logger = logging.getLogger(__name__)
+
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_TIMEOUT_S = 30.0
 MAX_IMAGE_BYTES = 4 * 1024 * 1024
 MAX_IMAGES = 4
-# HTTPS fetch of listing image URLs for Gemini (tight caps once we have a cover image).
-IMAGE_FETCH_TIMEOUT_FIRST_S = 4.0
-IMAGE_FETCH_TIMEOUT_AFTER_FIRST_S = 2.0
+# Per-image HTTPS fetch timeout. All images are fetched concurrently so these
+# caps apply per-request, not stacked.
+IMAGE_FETCH_TIMEOUT_S = 6.0
 
 # Keywords → canonical nav tag (first match wins per tag to avoid duplicates)
 _HEURISTIC_RULES: List[tuple[tuple[str, ...], str]] = [
@@ -194,37 +199,38 @@ def _guess_mime_from_url(url: str) -> str:
     return "image/jpeg"
 
 
-def _fetch_image_part(url: str, *, timeout: float):
+def _fetch_image_part(url: str):
     if not url.startswith("https://"):
         return None
     try:
-        with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+        with httpx.Client(timeout=IMAGE_FETCH_TIMEOUT_S, follow_redirects=True) as client:
             r = client.get(url)
             r.raise_for_status()
             body = r.content
             if len(body) > MAX_IMAGE_BYTES:
+                logger.warning("Skipping image (%.1f MB > limit): %s", len(body) / 1024 / 1024, url)
                 return None
             ct = r.headers.get("content-type", "").split(";")[0].strip().lower()
-            if ct.startswith("image/"):
-                mime = ct
-            else:
-                mime = _guess_mime_from_url(url)
+            mime = ct if ct.startswith("image/") else _guess_mime_from_url(url)
             from google.genai import types as genai_types
 
             return genai_types.Part.from_bytes(data=body, mime_type=mime)
-    except Exception:
+    except Exception as exc:
+        logger.warning("Failed to fetch image for Gemini (%s): %s", url, exc)
         return None
 
 
 def suggest_listing_gemini(title: str, description: str, image_urls: List[str]) -> ListingSuggestion | None:
     api_key = (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or "").strip()
     if not api_key:
+        logger.info("Gemini not configured (no GEMINI_API_KEY / GOOGLE_API_KEY) — using heuristics")
         return None
 
     try:
         from google import genai
         from google.genai import types as genai_types
     except ImportError:
+        logger.error("google-genai package not installed — pip install google-genai")
         return None
 
     allowed = ", ".join(f'"{x}"' for x in MARKETPLACE_TAGS)
@@ -246,30 +252,48 @@ def suggest_listing_gemini(title: str, description: str, image_urls: List[str]) 
         f"{draft}"
     )
 
+    # Fetch all images concurrently so N images cost ~1 round-trip instead of N.
     parts: List[Any] = [genai_types.Part.from_text(text=instructions)]
-    for url in image_urls[:MAX_IMAGES]:
-        have_image = len(parts) > 1
-        t = IMAGE_FETCH_TIMEOUT_AFTER_FIRST_S if have_image else IMAGE_FETCH_TIMEOUT_FIRST_S
-        img_part = _fetch_image_part(url, timeout=t)
-        if img_part is not None:
-            parts.append(img_part)
+    urls_to_fetch = image_urls[:MAX_IMAGES]
+    if urls_to_fetch:
+        with ThreadPoolExecutor(max_workers=len(urls_to_fetch)) as pool:
+            futures = {pool.submit(_fetch_image_part, url): url for url in urls_to_fetch}
+            # Collect in original order so cover photo is always first.
+            ordered: dict[str, Any] = {}
+            for future in as_completed(futures):
+                url = futures[future]
+                result = future.result()
+                ordered[url] = result
+        for url in urls_to_fetch:
+            part = ordered.get(url)
+            if part is not None:
+                parts.append(part)
+        image_count = len(parts) - 1
+        logger.info("Fetched %d/%d images for Gemini", image_count, len(urls_to_fetch))
 
     model = (os.getenv("GEMINI_TAG_MODEL") or DEFAULT_GEMINI_MODEL).strip()
+    logger.info("Calling Gemini model=%s parts=%d (1 text + %d images)", model, len(parts), len(parts) - 1)
 
     try:
-        client = genai.Client(api_key=api_key)
+        client = genai.Client(
+            api_key=api_key,
+            http_options={"timeout": GEMINI_TIMEOUT_S},
+        )
         response = client.models.generate_content(model=model, contents=parts)
         raw = (getattr(response, "text", None) or "").strip()
         if not raw:
+            logger.warning("Gemini returned empty text for model=%s", model)
             return None
         parsed = _json_from_model_text(raw)
         if parsed is None:
+            logger.warning("Gemini response was not valid JSON: %.200s", raw)
             return None
         t_out, d_out, tags = _parse_listing_json(parsed)
         if not t_out and not d_out and not tags:
             return None
         return ListingSuggestion(tags=tags, source="gemini", title=t_out, description=d_out)
-    except Exception:
+    except Exception as exc:
+        logger.error("Gemini generate_content failed (model=%s): %s", model, exc, exc_info=True)
         return None
 
 
