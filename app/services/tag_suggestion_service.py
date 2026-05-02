@@ -3,22 +3,27 @@ import logging
 import os
 import re
 import threading
-from concurrent.futures import Future, ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from concurrent.futures import Future, ThreadPoolExecutor, TimeoutError as FuturesTimeoutError, as_completed
 from dataclasses import dataclass
 from typing import Any, List, Optional
+
+import httpx
 
 from app.constants.marketplace import MARKETPLACE_TAGS, MARKETPLACE_TAGS_SET
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
-# The SSL handshake from Render's network to Google's API can take 20-30s.
-# GEMINI_TIMEOUT_S is the per-attempt httpx timeout (must cover connect + read).
-# GEMINI_TOTAL_TIMEOUT_S is a hard wall-clock cap enforced via a thread join so
-# the SDK's internal tenacity retries can never multiply the wait indefinitely.
-GEMINI_TIMEOUT_S = 30.0
-GEMINI_TOTAL_TIMEOUT_S = 35.0
+# google-genai SDK http_options timeout is in MILLISECONDS.
+# 60 000 ms = 60 s — enough to cover the SSL handshake (~25 s on Render)
+# plus the model inference time.
+GEMINI_TIMEOUT_MS = 60_000
+# Hard wall-clock cap via Future.result(timeout=...) in SECONDS.
+# Must be > GEMINI_TIMEOUT_MS/1000 so the SDK attempt can complete.
+GEMINI_TOTAL_TIMEOUT_S = 65.0
+MAX_IMAGE_BYTES = 4 * 1024 * 1024
 MAX_IMAGES = 4
+IMAGE_FETCH_TIMEOUT_S = 6.0
 
 # Module-level client singleton — reusing one client keeps the TLS connection
 # warm and avoids the 20-30s handshake penalty on every request.
@@ -204,11 +209,33 @@ def _guess_mime_from_url(url: str) -> str:
     return "image/jpeg"
 
 
+def _fetch_image_part(url: str) -> Any:
+    """Download an image and return a genai Part, or None on failure."""
+    if not url.startswith("https://"):
+        return None
+    try:
+        with httpx.Client(timeout=IMAGE_FETCH_TIMEOUT_S, follow_redirects=True) as client:
+            r = client.get(url)
+            r.raise_for_status()
+            body = r.content
+            if len(body) > MAX_IMAGE_BYTES:
+                logger.warning("Skipping image (%.1f MB > limit): %s", len(body) / 1024 / 1024, url)
+                return None
+            ct = r.headers.get("content-type", "").split(";")[0].strip().lower()
+            mime = ct if ct.startswith("image/") else _guess_mime_from_url(url)
+            from google.genai import types as genai_types
+            return genai_types.Part.from_bytes(data=body, mime_type=mime)
+    except Exception as exc:
+        logger.warning("Failed to fetch image for Gemini (%s): %s", url, exc)
+        return None
+
+
 def _get_gemini_client(api_key: str) -> Any:
     """Return a cached genai.Client for the given key.
 
     The client owns an httpx connection pool. Reusing it across requests avoids
     the expensive TLS handshake on every call (~20-30s on Render's network).
+    Note: google-genai SDK http_options timeout is in MILLISECONDS.
     """
     if api_key in _gemini_client_cache:
         return _gemini_client_cache[api_key]
@@ -218,7 +245,7 @@ def _get_gemini_client(api_key: str) -> Any:
         from google import genai
         client = genai.Client(
             api_key=api_key,
-            http_options={"timeout": GEMINI_TIMEOUT_S},
+            http_options={"timeout": GEMINI_TIMEOUT_MS},
         )
         _gemini_client_cache[api_key] = client
         logger.info("Created new Gemini client (connection pool initialised)")
@@ -256,13 +283,21 @@ def suggest_listing_gemini(title: str, description: str, image_urls: List[str]) 
         f"{draft}"
     )
 
-    # Pass Cloudinary URLs directly — Gemini fetches them server-side.
-    # No need to download images on our end first.
+    # Download images concurrently and send as inline bytes so Google's servers
+    # don't need to fetch external URLs (which adds latency and can hang).
     parts: List[Any] = [genai_types.Part.from_text(text=instructions)]
-    for url in image_urls[:MAX_IMAGES]:
-        parts.append(genai_types.Part.from_uri(file_uri=url, mime_type=_guess_mime_from_url(url)))
-    logger.info("Sending %d image URL(s) to Gemini (model=%s)", len(parts) - 1,
-                (os.getenv("GEMINI_TAG_MODEL") or DEFAULT_GEMINI_MODEL).strip())
+    urls_to_fetch = image_urls[:MAX_IMAGES]
+    if urls_to_fetch:
+        with ThreadPoolExecutor(max_workers=len(urls_to_fetch)) as pool:
+            futures = {pool.submit(_fetch_image_part, url): url for url in urls_to_fetch}
+            ordered: dict[str, Any] = {}
+            for future in as_completed(futures):
+                ordered[futures[future]] = future.result()
+        for url in urls_to_fetch:
+            part = ordered.get(url)
+            if part is not None:
+                parts.append(part)
+    logger.info("Sending %d image(s) inline to Gemini", len(parts) - 1)
 
     model = (os.getenv("GEMINI_TAG_MODEL") or DEFAULT_GEMINI_MODEL).strip()
 
