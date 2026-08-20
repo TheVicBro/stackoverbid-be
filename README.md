@@ -1,6 +1,19 @@
 ﻿# StackOverbid Backend
 
-StackOverbid is an auction e-commerce system backend built with Python and FastAPI. It supports user authentication, item cataloging, real-time bidding, notifications, and payment processing with receipt generation.
+FastAPI backend for StackOverbid, an auction marketplace: auth, catalogue, bidding, auction close, notifications, and in-app checkout.
+
+**Frontend:** [TheVicBro/stackoverbid](https://github.com/TheVicBro/stackoverbid) · **Live app:** [stackoverbid.vercel.app](https://stackoverbid.vercel.app)
+
+Team course project. “Payment” creates an order and receipt in the database (winner-only, shipping strategy). There is no Stripe/PayPal integration.
+
+## Architecture
+
+- **Routers** stay thin; **services** own bid rules, auction finalization, and checkout.
+- **DAOs** isolate SQLAlchemy queries.
+- Bidding rejects seller self-bids and amounts at or below the current price; listings cannot be edited after a bid or after expiry.
+- Expired auctions are closed on demand (notifications for bidders; winner can pay).
+- Optional Gemini tag suggestions for new listings; keyword heuristics if `GEMINI_API_KEY` is unset.
+- SQLite locally, Postgres in production (`DATABASE_URL`). JWT via `SECRET_KEY`.
 
 ## Prerequisites
 
